@@ -358,11 +358,12 @@ The notebook is organised in the following order, from top to bottom:
 
 | Section | Content |
 |---|---|
+| `# README.md` | This document (markdown) |
 | `# Paper` | Title, authors, submission date, arXiv link and abstract (markdown) |
-| Study documentation | Markdown sections: *Paper Summary*, *Equations*, *Algorithms*, *Network Architectures*, *System IPO*, *Reproduction Steps*, *Essential Sections*, *Skills*, *Skills For Template*, *Data Structures: Input*, *Data Structures: Dataframes*, *Data Structures: Parameters*, *Data Structures: Parameters Alt*, *Data Structures: Configuration*, *Use Cases* |
-| `# Use Case Extraction` | The decision-engine statement (markdown) |
-| `# Import Essential Modules` | The consolidated import cell. `from __future__ import annotations` comes first. |
-| `# Implementation`, `# Draft 1` | Section headings (markdown) |
+| `# Paper Summary` | A step-by-step summary of the paper (markdown) |
+| `# Import Essential Modules` | A markdown heading, then the consolidated import cell. The cell opens with the module header (title, methodological components, paper reference, author CS Chirinda, MIT licence, version 1.0.0); `from __future__ import annotations` is its first statement. |
+| `# Implementation` | Section heading (markdown) |
+| `# Draft 1` | Markdown: the discussion of the inputs, processes and outputs (IPOs) of the 36 key callables `run_task_1` … `run_task_36`, the complete usage example, and the *Implemented Callables* heading |
 | `# Supporting Definitions` | Shared constants and helpers |
 | `# Task 1` … `# Task 36` | The 36 task cells, one per task, in task order |
 | `# Study Assembly` | Declares `STUDY_RESULTS` and `STUDY_STATUS` |
@@ -3071,8 +3072,8 @@ multi_agent_symbolic_discovery_for_financial_fundamental_analysis/
 ├── multi_agent_symbolic_discovery_for_financial_fundamental_analysis_ipo_main_1.png # Inputs-Processes-Outputs diagram
 ├── config.yaml                 # study configuration, version 1.1.0 (14 top-level blocks)
 ├── study_config.json           # the same configuration mapping as JSON (read by run_study_execution)
-├── usage_example.md            # the verified usage example embedded above
-├── key_callables_discussion.txt  # IPOs of the principal callables
+├── usage_example.md            # the verified usage example (also embedded in the notebook's Draft 1 section)
+├── key_callables_discussion.txt  # IPOs of the 36 key callables (also embedded in the notebook's Draft 1 section)
 ├── inputs_discussion.txt       # discussion of the study inputs
 ├── LICENSE
 └── README.md
