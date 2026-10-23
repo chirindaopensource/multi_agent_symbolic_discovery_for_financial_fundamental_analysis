@@ -407,6 +407,10 @@ market_structure:
       tag: "[UNSPECIFIED IN MANUSCRIPT]"
       decision: "recorded"
       justification: "The learnings-history page size is a packaging decision."
+    - path: "study_specification.baselines.classical_valuation.EV_EBIT"
+      tag: "[UNSPECIFIED IN MANUSCRIPT]"
+      decision: "recorded"
+      justification: "The paper gives no formula for the EV/EBIT and EV/EBITDA baselines; their product is enterprise value per share, a whole-firm claim, so net debt per share, (bs_total_debt - bs_cash_and_equivalents) / bs_shares_outstanding converted by the frozen reporting-to-trading rate, bridges it to the share-price target, as the FCFF baseline already nets debt less cash."
   ftse_candidate_symbols: ["^FTAPXJ", "^FTSEAPXJ", "FTAWXJ", "^FTASIAPXJ"]
 # ============================================================================
 # TASK 4 — restatement discipline, structural zeros, denominators and Gate 0
@@ -2662,8 +2666,8 @@ study_specification:
         budget_matched_to_pysr: true
     classical_valuation:
       P_E: {structure: "EPS_TTM * SECTOR_MEDIAN_PE", citation: "Damodaran (2012)"}
-      EV_EBIT: {structure: "EBIT_ps * SECTOR_MEDIAN_EV_EBIT", citation: "Damodaran (2012)"}
-      EV_EBITDA: {structure: "EBITDA_ps * SECTOR_MEDIAN_EV_EBITDA", citation: "Damodaran (2012)"}
+      EV_EBIT: {structure: "EBIT_ps * SECTOR_MEDIAN_EV_EBIT - NET_DEBT_ps", citation: "Damodaran (2012)"}  # [REVISED: Corrected] EV is a whole-firm claim; net debt per share bridges it to the price target
+      EV_EBITDA: {structure: "EBITDA_ps * SECTOR_MEDIAN_EV_EBITDA - NET_DEBT_ps", citation: "Damodaran (2012)"}  # [REVISED: Corrected] EV is a whole-firm claim; net debt per share bridges it to the price target
       P_B: {structure: "BVPS * SECTOR_MEDIAN_P_BOOK", citation: "Damodaran (2012)"}
       DDM: {structure: "D_1 / (r - g)", single_stage: true, citation: "Gordon (1962)"}
       FCFE: {structure: "FCFE_1 / (r_e - g)", single_stage: true, citation: "Damodaran (2012)"}

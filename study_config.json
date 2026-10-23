@@ -513,6 +513,12 @@
         "tag": "[UNSPECIFIED IN MANUSCRIPT]",
         "decision": "recorded",
         "justification": "The learnings-history page size is a packaging decision."
+      },
+      {
+        "path": "study_specification.baselines.classical_valuation.EV_EBIT",
+        "tag": "[UNSPECIFIED IN MANUSCRIPT]",
+        "decision": "recorded",
+        "justification": "The paper gives no formula for the EV/EBIT and EV/EBITDA baselines; their product is enterprise value per share, a whole-firm claim, so net debt per share, (bs_total_debt - bs_cash_and_equivalents) / bs_shares_outstanding converted by the frozen reporting-to-trading rate, bridges it to the share-price target, as the FCFF baseline already nets debt less cash."
       }
     ],
     "ftse_candidate_symbols": [
@@ -4461,11 +4467,11 @@
           "citation": "Damodaran (2012)"
         },
         "EV_EBIT": {
-          "structure": "EBIT_ps * SECTOR_MEDIAN_EV_EBIT",
+          "structure": "EBIT_ps * SECTOR_MEDIAN_EV_EBIT - NET_DEBT_ps",
           "citation": "Damodaran (2012)"
         },
         "EV_EBITDA": {
-          "structure": "EBITDA_ps * SECTOR_MEDIAN_EV_EBITDA",
+          "structure": "EBITDA_ps * SECTOR_MEDIAN_EV_EBITDA - NET_DEBT_ps",
           "citation": "Damodaran (2012)"
         },
         "P_B": {

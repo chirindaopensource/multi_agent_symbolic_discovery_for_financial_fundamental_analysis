@@ -370,17 +370,17 @@ $$
 ### Task 25 — `run_task_25`
 
 - **Inputs**: `panel`, quarterly `macro`, LLM `client`, `models` (Fin-R1, Fino1), `allowed_fields`, `target_column`, `erp` (decimal), `output_dir`; keyword `run_id`, optional `schema_overrides`, `yield_columns`, `initial_vintage`; `flow_convention` defaults to `trailing`.
-- **Process**: resolves logical schema names once; runs the leakage-controlled LLM baseline row by row; prices four sector-median multiples; prices three single-stage Gordon models; stacks all predictions as one long frame keyed by (model, market, quarter, firm).
-- **Outputs**: `llm`, `sector_median`, `gordon`, `predictions`, `coverage`, `schema`, `gordon_reason_counts`, `flow_convention`, `warnings`, `assumptions`, `gap_decisions`, `llm_coverage`, `paths`, `n_register_records`, `run_id`.
+- **Process**: resolves logical schema names once; runs the leakage-controlled LLM baseline row by row; prices four sector-median multiples, bridging the two enterprise-value multiples to the share price by net debt per share; prices three single-stage Gordon models; stacks all predictions as one long frame keyed by (model, market, quarter, firm).
+- **Outputs**: `llm`, `sector_median`, `gordon`, `predictions`, `coverage`, `schema`, `gordon_reason_counts`, `ev_bridge_counts` (per EV baseline, the rows the net-debt bridge left missing and the non-positive implied prices), `flow_convention`, `warnings`, `assumptions`, `gap_decisions`, `llm_coverage`, `paths`, `n_register_records`, `run_id`.
 - **Transformation**: fundamentals become financial-LLM and classical valuation forecasts; a target in the whitelist halts before any prompt exists, and an unparseable reply is a recorded row-level miss.
 - **Research role**: the Financial LLMs and Financial Valuation baselines; "We use the single-stage Gordon Growth Model …, which assumes constant growth."
 - **Equations**: sector-median products, and Gordon pricing with $r$ = local sovereign yield joined by (market, quarter) plus ERP, and $g$ = sustainable growth (decimal):
 
 $$
-\hat P^{PE}=EPS\cdot\widetilde{PE}_s,\quad \hat P^{EV/EBIT}=EBIT_{\mathrm{ps}}\cdot\widetilde{EV/EBIT}_s,\quad \hat P^{DDM}=\frac{D}{r-g},\quad \hat P^{FCFE}=\frac{FCFE_{\mathrm{ps}}}{r-g},\quad \hat P^{FCFF}=\frac{FCFF/(r-g)-(D_{\mathrm{tot}}-\mathrm{Cash})}{S_{\mathrm{diluted}}}.
+\hat P^{PE}=EPS\cdot\widetilde{PE}_s,\quad \hat P^{EV/EBIT}=EBIT_{\mathrm{ps}}\cdot\widetilde{EV/EBIT}_s-\frac{D_{\mathrm{tot}}-\mathrm{Cash}}{S}\,\phi,\quad \hat P^{DDM}=\frac{D}{r-g},\quad \hat P^{FCFE}=\frac{FCFE_{\mathrm{ps}}}{r-g},\quad \hat P^{FCFF}=\frac{FCFF/(r-g)-(D_{\mathrm{tot}}-\mathrm{Cash})}{S_{\mathrm{diluted}}}.
 $$
 
-- **Implementation distinction**: EV/EBITDA and P/B follow the same product form. Rows with $r\le g$ are undefined with a reason. Prices are converted to the trading currency by the frozen FX rate. FCFF is discounted at the same rate $r$, since the manuscript gives no WACC.
+- **Implementation distinction**: P/B follows the P/E product form and EV/EBITDA the EV/EBIT bridge. An enterprise multiple prices a whole-firm claim, so its product is enterprise value per share; net debt per share, $(D_{\mathrm{tot}}-\mathrm{Cash})/S$ with $S$ = `bs_shares_outstanding` (the Task 8 per-share divisor), converted by the frozen reporting-to-trading rate $\phi$, bridges it to the price, as FCFF already nets debt less cash. A missing debt, cash, share count or rate leaves the price missing with a warning; a non-positive implied price is set missing and counted, never clipped. This revises the configured structure `EBIT_ps * SECTOR_MEDIAN_EV_EBIT` to `EBIT_ps * SECTOR_MEDIAN_EV_EBIT - NET_DEBT_ps` (and EV/EBITDA likewise), registered in `market_structure.gap_register` and as the `ev_to_price_bridge` gap decision. Rows with $r\le g$ are undefined with a reason. Prices are converted to the trading currency by the frozen FX rate. FCFF is discounted at the same rate $r$, since the manuscript gives no WACC.
 
 ### Task 26 — `run_task_26`
 
