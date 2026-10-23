@@ -1,0 +1,548 @@
+## Key callables, Tasks 1 to 36
+
+This discussion covers the 36 final task orchestrators of `multi_agent_symbolic_discovery_for_financial_fundamental_analysis.ipynb`, `run_task_1` to `run_task_36`, in notebook task order. Python implementation author: **CS Chirinda**. The orchestrators' signatures and documented contracts, the docstrings of the stage callables they compose, and the notebook's declared constants establish behaviour; `latex_context.txt` establishes the methodological standard. Internal helpers (for example `run_iteration_body_task_15` or `run_preflight_task_11`) are accounted for inside their parent task rather than counted as additional callables. The notebook was not executed for this document.
+
+Notation: firm $i$, fiscal quarter $t$, accounting database $\mathcal{X}_t$, look-ahead price $y_{i,t+1}$, perspective $a\in\mathcal{A}=\lbrace\mathrm{earnings},\mathrm{cashflow},\mathrm{asset},\mathrm{growth},\mathrm{quality}\rbrace$, context $C(i,t)=(s(i),r(t))$ of sector and market regime, memory $\mathbf{M}^{(a)}$, learnings $\mathbf{Z}^{(a)}$, and context weights $\tilde{\mathbf{w}}_{C(i,t)}$. Errors are fractions of the actual, and every MAPE is taken over admissible rows only (finite prediction, finite and non-zero actual): $\mathrm{MAPE}=\frac{1}{N}\sum_{r}\frac{|\hat y_r-y_r|}{|y_r|}$. Paper equations are numbered as in `latex_context.txt`: (1) $\tilde f_{C(i,t)}(\hat x_{i,t})\approx y_{i,t+1}$; (2) $\hat y^{(a)}_{i,t+1}=\tilde f^{(a)}(\mathbf{x}^{(a)}_{i,t})$; (3) $\mathcal{L}^{(a)}=\mathrm{MAPE}(\hat y^{(a)}_{i,t+1},y_{i,t+1})$; (4) $\hat y_{i,t+1}=\tilde{\mathbf{w}}_{C(i,t)}^\top\hat{\mathbf{y}}_{i,t+1}$; (5) $\mathcal{L}^{\mathrm{meta}}=\mathrm{MAPE}(\hat y_{i,t+1},y_{i,t+1})$; (6) $L=\lfloor4(T/100)^{2/9}\rfloor$.
+
+Data boundary: the licensed Bloomberg fundamentals and FactSet macro panels are not part of this project. Without them the pipeline runs only in its declared synthetic mode, so manuscript figures below are comparison targets, not reproduced results. Task numbers identify notebook cells, not runtime calls: Task 36 drives Tasks 1–4 and 22–35 directly, Task 22 composes Tasks 5–12, 15, 20 and 21, and Tasks 13, 14 and 16–19 run inside Task 15's discovery loop.
+
+### Task 1 — `run_task_1`
+
+- **Inputs**: `config`, a mapping carrying container and base-image digests, resolved wheel pins and digests, index URL and mirror hash, the expected hardware block, the serving registry, server configuration and smoke record, checkpoint record, licensing block, declared git commit, seed list, UTC timestamp and determinism-sweep scope; `output_dir`.
+- **Process**: a validation phase writes nothing: licensing boundary, run identifier from container digest plus configuration hash, five-target seed registry, serving-budget validation, checkpoint reconciliation and a sweep of stochastic call sites. A write phase then emits and verifies the requirements lock, appends provenance and deviation records to the append-only register, and writes the environment manifest atomically.
+- **Outputs**: `run_id`, `seed_list`, `config_hash`, `artifacts`, `manifest` (digests, executed and declared commit, platform, wheels, hardware, vLLM, model, probes), `seed_registry`, `deviations`, `warnings`, `executed_probes`, `checkpoint_reconciliation`, `serving_budget`, `determinism_sweep`.
+- **Transformation**: declared environment facts become one run identity and a provenance manifest. Docker and vLLM are never invoked; the hardware capture and revision query run, and divergences are registered as deviations rather than overwriting either side.
+- **Research role**: pins the Implementation Details: "All LLMs are served locally using vLLM … The model context window is 32,768 tokens; we set a maximum generation length of 16,384 tokens."
+- **Equations**: the serving budget that later prompt assembly must respect, with headroom $H$ for a smoke request of $P$ prompt and $G$ generation tokens:
+
+$$
+B_{\mathrm{prompt}}=32768-16384=16384,\qquad H=W-(P+G),\qquad W=32768.
+$$
+
+- **Implementation distinction**: each of the five seeds (the study declares 11, 23, 41, 67, 101) is delivered to `python_random`, `numpy_random`, `differential_evolution`, `slsqp_x0` and `vllm_sampler`; concurrency is pinned at 32 unless a GPU out-of-memory reduction is registered. These are reproducibility contracts, not paper equations.
+- **Failure behaviour**: a non-x86_64 machine, a redistributable raw-data flag, a pin without a wheel digest, a budget mismatch or a checkpoint mismatch halts before any file is written.
+
+### Task 2 — `run_task_2`
+
+- **Inputs**: `fundamental_quarter` and `macro_quarter` DataFrames; `config` carrying `fundamental_schema`, `macro_schema` and `arithmetic_verification_targets`; `output_dir`; optional `run_id`; `raise_on_halt` defaults to true.
+- **Process**: validates the run identifier and three configuration blocks first. Stage 1 checks the firm-quarter schema (two-way column difference, dtypes, `cusip` as text, composite-key uniqueness on `(issuer_id, fiscal_period_end)`, currency coherence, out-of-span dates) and quarantines HALT rows. Stage 2 checks macro coverage, publication lags, vintage taxonomy and positive-yield entries. Stage 3 recomputes the manuscript's declared arithmetic.
+- **Outputs**: `fundamental`, `macro`, `arithmetic` (`halted`, `report_path`, `gap_register`, `aggregation_basis`, `config_version`), `artifacts` (two deviation ledgers, arithmetic report, quarantine set, macro coverage, gap register), `halted`, `run_id`, `gap_records_appended`.
+- **Transformation**: raw vendor panels become schema-certified panels with row-level deviation evidence; a halted run still writes every artefact before raising `Task2HaltError`.
+- **Research role**: protects the Dataset design: "We use data from original quarterly filings only, preventing look-ahead bias from subsequent restatements."
+- **Equations**: currency coherence for matched currencies, and the Table 2 arithmetic that the stage reconstructs (Random Forest row: $3.2894/5=0.6579$ and $0.7490/5=0.1498$; MUFASA's average margin $6.2934/17=0.3702$):
+
+$$
+|\mathrm{fx}-1|<10^{-6},\qquad \mathrm{AllData}_m=\frac{1}{5}\sum_{k=1}^{5}\mathrm{MAPE}_{m,k},\qquad \overline{\Delta}_m=\frac{1}{5}\sum_{k=1}^{5}\left(\mathrm{MAPE}_{m,k}-\mathrm{MAPE}_{\mathrm{MUFASA},k}\right).
+$$
+
+- **Implementation distinction**: the headline "average improvement of 19.65%" is registered as not reconstructable (pooled against PySR gives 20.00%, the per-market mean 19.47%); the "27.67%" reduction against the better agentic baseline is reproduced as the mean of five per-market improvements.
+
+### Task 3 — `run_task_3`
+
+- **Inputs**: `config`, `index_daily`, `index_membership`, `vendor_symbols`, `conflicts_registry`, `gap_register`, `output_dir`; optional `ftse_candidate_symbols` and `run_id`.
+- **Process**: certifies the index ticker registry (the four pre-verified tickers `^GSPC`, `^RUT`, `^STOXX`, `000300.SS` must be present and verified; the FTSE Asia Pacific ex-Japan placeholder is resolved by the first candidate with a non-empty close series); deduplicates membership intervals per `(issuer_id, index_name)` with the later methodology vintage winning; checks configuration consistency over the declared conflicts.
+- **Outputs**: `run_id`, `index`, `membership`, `config_consistency`, `warnings`, `gap_register`, `artifacts`, `gap_records_appended`; the ticker map is a separate immutable artefact that is never overwritten with a different digest.
+- **Transformation**: a raw index frame and membership history become a regime-safe verified close series and certified, non-overlapping constituent intervals; the adjusted price column never reaches regime dating.
+- **Research role**: implements the Dataset and Market Settings inputs: "constituent entry and exit dates included to prevent survivorship bias" and "Regimes are computed from the index prices sourced from Yahoo Finance."
+- **Equations**: after deduplication the intervals of each issuer and index are ordered and pairwise disjoint, with an open exit treated as $+\infty$:
+
+$$
+e_k\le x_k,\qquad [e_k,x_k]\cap[e_{k'},x_{k'}]=\varnothing\quad(k\ne k').
+$$
+
+- **Implementation distinction**: a forward-fill share above 0.05 warns; the sentinel exit 2099-12-31 is forbidden; an extract with no delisting and no acquisition is flagged as suspect for survivorship.
+
+### Task 4 — `run_task_4`
+
+- **Inputs**: validated `panel`, original-filing `raw_snapshot`, `ratio_specs` covering the ten declared ratios (P/E, P/B, P/FCF, P/OCF, EV/EBIT, EV/EBITDA, EV/FCF, EV/Sales, ROE, payout), `output_dir`; `max_failure_fraction` 0.05, `warn_threshold` 0.02, optional `run_id` and `reporting_precision`.
+- **Process**: asserts the raw snapshot is preserved; applies restatement discipline; audits structural zeros against the sector registry; preserves negative free cash flow bit for bit; applies the set-missing denominator policy; evaluates Gate 0 and quarantines failing rows by a key anti-join.
+- **Outputs**: cleaned `panel`, `restatement_audit_rate`, `data_quality_ledger` (structural zeros, denominators, sign fidelity), `gate0_report`, `gate0_summary`, `quarantined_rows`, audits, warnings, `gap_register`, `validation_only`, `run_id`, `artifact_paths`.
+- **Transformation**: audited-restated rows are tagged `design_matrix_eligible = False` and retained for audit, never deleted; ratios are appended, never substituted for raw columns.
+- **Research role**: enforces "data from original quarterly filings only" so that later restatements cannot leak backward.
+- **Gate 0 and the denominator rule**, per row, with a check halting only when its failure fraction over evaluable rows exceeds 0.05:
+
+$$
+|A-(L+E)|\le\max\left(10^{-3}|A|,\tfrac{1}{2}\mathrm{precision}\right),\qquad \frac{|MC-P\cdot S|}{MC}\le0.02,\qquad \tau_{\mathrm{target}}>\tau_{\mathrm{filing}},\qquad \mathrm{ratio}=\begin{cases}N/D,&D>0\\ \mathrm{missing},&\text{otherwise.}\end{cases}
+$$
+
+- **Implementation distinction**: the target date must also equal the next fiscal quarter end, and the split-adjustment reference date must not precede the period end. An imputed structural zero halts; the weak pending-restatement flag never excludes a row.
+
+### Task 5 — `run_task_5`
+
+- **Inputs**: cleaned `panel`, deduplicated `membership`; keyword `config` (required `index_to_market`, optional `nominal_constituents`, `rejection_warn_threshold` 0.01, `coverage_tolerance` 0.05), `output_dir`, `run_id`, optional `expected_coverage`.
+- **Process**: maps each fiscal period to the calendar quarter holding the majority of its days; applies the filing-date gate; applies the inclusive membership gate; adds the single combined admission column `eligible_for_design_matrix`.
+- **Outputs**: `panel` sorted on `(issuer_id, fiscal_period_end)`, `divergences`, `rejection_log`, `coverage`, `membership_rejected`, `row_counts`, `warnings`, `run_id`, `artifacts`.
+- **Transformation**: fiscal-labelled rows become point-in-time rows. A row is admitted only when its original filing precedes the target date, and only while the firm is a genuine constituent.
+- **Research role**: implements "define the target variable as the stock price at the end of the fiscal quarter immediately following each filing period" without look-ahead, and survivorship control through constituent intervals.
+- **Equations**: with period $[\sigma_{i,t},e_{i,t}]$, original filing date $f_{i,t}$, target date $\tau_{i,t}$ and Task 4's flag $\mathrm{dme}_{i,t}$:
+
+$$
+q^{\mathrm{cal}}_{i,t}=\arg\max_{q}\bigl|[\sigma_{i,t},e_{i,t}]\cap q\bigr|,\qquad \mathrm{eligible}_{i,t}=\mathbf{1}\lbrace f_{i,t}<\tau_{i,t}\rbrace\,\mathbf{1}\lbrace\mathrm{entry}_i\le e_{i,t}\le\mathrm{exit}_i\rbrace\,\mathrm{dme}_{i,t}.
+$$
+
+- **Implementation distinction**: an assigned-quarter overlap share below 0.6 is registered as divergent; fiscal-year-change rows keep a missing mapping; a market with no constituent hit halts after its coverage table is written.
+
+### Task 6 — `run_task_6`
+
+- **Inputs**: `panel`, `classifications` (GICS vintages), `index_daily`; keyword `output_dir`, `min_cell_occupancy` 200, optional `occupancy_mask`, `run_id`, `split_boundaries`; `regime_timeline` defaults to `causal`.
+- **Process**: attaches the paper sector label and as-of GICS code through a backward as-of join on the effective date; dates daily bull and bear states from the verified closes; aggregates them to calendar quarters; builds the context key; audits training occupancy with a sector-pooled fallback.
+- **Outputs**: keyed `panel`, `regime_daily`, `regime_quarterly`, `regime_quarterly_ex_post`, `regime_switches`, `cell_occupancy`, `timeline_sha256`, `pooling_map`, `occupancy_status`, warnings and register paths.
+- **Transformation**: index prices and classification history become the context variable $C(i,t)=(s(i),r(t))$, rendered as `sector|regime`; occupancy is deferred, and registered, when no training mask exists yet.
+- **Research role**: "a bull market is declared when the index has risen at least 20% from its most recent trough, and a bear market when it has fallen at least 20% from its most recent peak."
+- **Equations**: the causal daily state machine, with $\underline{P}_d$ and $\overline{P}_d$ the most recent trough and peak; the quarterly label is the majority of trading days, ties going to the last trading day:
+
+$$
+r_d=\begin{cases}\mathrm{Bull},&P_d\ge1.2\,\underline{P}_d\\ \mathrm{Bear},&P_d\le0.8\,\overline{P}_d\\ r_{d-1},&\text{otherwise.}\end{cases}
+$$
+
+- **Implementation distinction**: a day satisfying both bands is labelled bull, the pre-first-breach span is back-filled, and the ex-post variant replaces the peak side only; each resolution is a registered gap decision. A context below 200 training firm-quarters takes the key `sector|POOLED`.
+
+### Task 7 — `run_task_7`
+
+- **Inputs**: `panel`, `output_dir`; keyword `feature_columns`, `market_column`, `train_fraction` 0.8, `embargo_quarters` 1, `fit_fraction` 0.9, `coverage_threshold` 0.8, `gap_threshold_days` 135, optional `codebook`, `retrieval_index`, `regime_timeline` snapshots, `run_id`, `eligibility_column`.
+- **Process**: filters on Task 5's combined eligibility flag; builds the forward-shifted target within issuer on the calendar-quarter axis; splits each market chronologically; purges training rows whose target date reaches the test window; carves fitting and validation sub-partitions; freezes the fitting statistics and snapshots behind a SHA-256 token.
+- **Outputs**: `panel` with `partition` and `sub_partition`, `split_artefact`, `freeze_manifest`, `frozen_document`, `freeze_token`, `counts`, `exclusions`, `warnings`, `run_id`, `gap_records_appended`, `artifacts`.
+- **Transformation**: eligible firm-quarters become a target-carrying, leakage-safe train/embargo/test panel and an immutable frozen-parameters document that later stages must verify rather than re-estimate.
+- **Research role**: "the first 80% of quarters form the training set and the remaining 20% form the held-out test set."
+- **Equations**: with $n_m$ distinct calendar quarters in market $m$, quarters ordered chronologically:
+
+$$
+y_{i,t+1}=P_i\bigl(e_{i,t+1}\bigr)\ \text{if } e_{i,t+1}-e_{i,t}\le135\text{ days},\qquad \mathcal{Q}^{\mathrm{train}}_m=\lbrace q_1,\ldots,q_{\lfloor0.8n_m\rfloor}\rbrace,\qquad n^{\mathrm{fit}}=\max\left(1,\lfloor0.9\,n^{\mathrm{train}}_m\rfloor\right).
+$$
+
+- **Implementation distinction**: one embargo quarter and the row-level purge are leakage counters beyond the paper's 80/20 sentence; fewer than 12 test quarters warns. Frozen statistics are the fitting-block mean, population SD, 1st/99th percentiles and coverage.
+
+### Task 8 — `run_task_8`
+
+- **Inputs**: `config` (codebook schema, variable vocabulary, training window, optional `min_denominator_tolerance`), `panel`, `output_dir`; keyword `run_id`, `partition_column` (`partition`).
+- **Process**: builds the per-share variables, then the firm-level multiples, then the codebook with both frames handed to it; produces the modelling ratios ROE and Payout under the same admissibility helper; writes the codebook (JSON and JSONL, both digested), registries, denominator policy and vendor-EPS divergence evidence.
+- **Outputs**: `codebook`, `per_share`, `multiples`, `sha256`, final `panel`, `run_id`, `tolerance`, `ratio_quality_counts`, `gap_records_appended`, `artifacts`.
+- **Transformation**: trailing-twelve-month totals become per-share and multiple features, each with a per-row quality code, and a hashed codebook of symbols, machine names, definitions, units and training coverage.
+- **Research role**: supplies the variables of Table 4's equations, for example $NI_{\mathrm{ps}}$, $FCF_{\mathrm{ps}}$, $BVPS$, $PE$, $PB$, $P/FCF$ and $EV/EBITDA$.
+- **Equations**: with period-end shares $S$, admissible when finite, positive and not below the tolerance (default $10^{-6}$):
+
+$$
+x_{\mathrm{ps}}=\frac{X_{\mathrm{TTM}}}{S},\qquad TBVPS=\frac{E-GW-INT}{S},\qquad EV=MC+D-\mathrm{Cash},\qquad PE=\frac{MC}{NI},\qquad ROE=\frac{NI}{E},\qquad \mathrm{Payout}=\frac{\mathrm{Div}}{NI}.
+$$
+
+- **Implementation distinction**: `EPS_TTM` is copied from the vendor rather than recomputed, with its divergence recorded; ratios with non-positive or below-tolerance denominators are set missing, never clipped. Task 4's ratio columns are the audit copy; ROE and Payout here are the modelling set.
+
+### Task 9 — `run_task_9`
+
+- **Inputs**: `panel`; keyword `feature_columns`, `winsor_bounds` or `frozen_document` (exactly one), required `freeze_token`, `min_firms_per_quarter`, `min_firms_per_sector_quarter`, `output_dir`, optional `market_column`, `dispersion_feature` (`EV_EBIT`).
+- **Process**: verifies the freeze token, resolves one set of bounds, and hands the same bounds, digest and market column to the market, sector and dispersion stages; joins the aggregates back onto the firm rows in input order.
+- **Outputs**: `market`, `sector`, `dispersion`, joined `panel`, `warnings`, `artifact_paths`, `bounds_digest`, `winsor_bounds`, `aggregate_columns`.
+- **Transformation**: in-index firm features become contemporaneous market and sector anchors over one population under one frozen fit, so relative-valuation inputs use only the same quarter.
+- **Research role**: supplies aggregate terms such as $PB_{\mathrm{mkt,med}}$ in PySR's Table 4 expression and $(P/FCF)_{\mathrm{mkt}}$ in the Growth agent's equation.
+- **Equations**: clipping to the frozen bounds, then per (market, quarter) the median, mean and sample SD, and the within-cell dispersion over at least two observations:
+
+$$
+\tilde x=\min\bigl(\max(x,q_{01}),q_{99}\bigr),\qquad s_{m,t}=\sqrt{\frac{1}{n-1}\sum_{i}(\tilde x_i-\bar{\tilde x})^2},\qquad \sigma^{EV/EBIT}_{m,s,t}=s\bigl(\tilde x\mid m,s,t\bigr).
+$$
+
+- **Implementation distinction**: sector cells publish medians only. A thin cell keeps its row and count while its median is withheld, and the floors are caller-supplied (the task list declares 50 firms per quarter and 5 per sector-quarter).
+
+### Task 10 — `run_task_10`
+
+- **Inputs**: `panel` from Tasks 5–9; keyword `input_columns` overrides, `market_median_column` (`market_Revenue_ps_median`), `dividend_sign_convention` (`positive_amount_paid`).
+- **Process**: resolves working columns from declared spellings and converts Task 8's fractional ROE once to `ROE_pct`; builds label-anchored lags at horizons 1, 4 and 8; computes growth rates, payout and sustainable growth; builds the engineered flags.
+- **Outputs**: engineered `panel`, `warnings`, `lag_missing_counts`, `family_map`, `input_sources`.
+- **Transformation**: point-in-time levels become lagged, growth and discretised features keyed to the chronological ordinal $4\cdot\mathrm{year}+\mathrm{quarter}-1$, so a lag is the value exactly $k$ fiscal quarters earlier.
+- **Research role**: supplies growth terms such as $g_{EPS}$, which the released Earnings equation uses in percent: $NI_{\mathrm{ps}}\cdot(1+0.01\cdot g_{EPS})\cdot PE\cdot0.88$.
+- **Equations**: growth in percent on the absolute prior-year denominator, payout and sustainable growth:
+
+$$
+g_{x,t}=100\,\frac{x_t-x_{t-4}}{|x_{t-4}|},\qquad \mathrm{Payout}_t=\frac{\mathrm{Div}_t}{NI_t},\qquad \mathrm{SustGrowth}_t=\mathrm{ROE}^{\%}_t\,(1-\mathrm{Payout}_t).
+$$
+
+- **Implementation distinction**: growth is set missing on a zero prior year or a sign flip; payout is missing for non-positive net income. The negative-cash-flow factor takes levels 0, 1, 2 at the boundaries 0 and −1000, and a missing flow stays missing. A lag-quality mean below 0.7 warns.
+
+### Task 11 — `run_task_11`
+
+- **Inputs**: Task 8 `codebook`, curated `queries`; keyword `output_dir`, `run_id`, optional `embed_fn`, `model_name` (`all-MiniLM-L6-v2`), `model_revision`, `top_k` 20, `sensitivity_depths` (5, 10, 20), `coverage_threshold` 0.8, `pass_threshold` 0.9, `report_path`.
+- **Process**: turns each codebook entry into a descriptor over symbol, machine name, definition and units; encodes them to unit vectors; builds an exact cosine index; binds a retriever to that index, depth and threshold; runs the pre-flight at the primary and every sensitivity depth.
+- **Outputs**: `bundle`, `retrieve_fn` (consumed by Task 15), `embedding_model_hash`, `index_digest`, `var_ids`, `n_indexed`, `preflight`, `preflight_by_depth`, `primary_depth`, `report_path`, `artifacts`, `gap_records_appended`, `run_id`.
+- **Transformation**: a variable dictionary becomes a searchable semantic index and a bound tool that returns ranked variables with a coverage verdict rather than an exception.
+- **Research role**: "the agent first queries a semantic retrieval mechanism to obtain candidate variable names and descriptions … If a retrieval attempt fails (e.g., due to unavailability or insufficient coverage), the model receives structured feedback."
+- **Equations**: cosine similarity, coverage over the retrieved set $\mathcal{R}_k(q)$ (at most $k$ identifiers, never padded; a missing coverage counts as 0), and the pre-flight pass rate over at least 50 queries:
+
+$$
+\mathrm{sim}(q,v)=\frac{e_q^\top e_v}{\lVert e_q\rVert\,\lVert e_v\rVert},\qquad \mathrm{cov}(q)=\frac{1}{|\mathcal{R}_k(q)|}\sum_{v\in\mathcal{R}_k(q)}c_v<0.8\Rightarrow\mathtt{COVERAGE\_BELOW\_THRESHOLD},\qquad \frac{n_{\mathrm{pass}}}{n_{\mathrm{queries}}}\ge0.9.
+$$
+
+- **Implementation distinction**: the exact in-memory search substitutes for the approximate stores the task list names (faiss, hnswlib), registered as a gap decision; only the primary depth can halt, and only after every artefact is written.
+
+### Task 12 — `run_task_12`
+
+- **Inputs**: `model_revision`; keyword `model_id`, `run_id`, optional `container`, `dry_run` (default true), `scratch_dir`, `engine_factory`, `transport`, `per_role_seconds`, `n_iterations` 1, workers (5 specialist, 1 meta, 1 distiller), `max_new_tokens` 8192, `dtype`, `seed` 0, `smoke_prompt`, `clock`.
+- **Process**: pins the engine configuration; launches one server for seven role keys, applying the out-of-memory back-off once (factor 0.5, floor 1); asserts the engine-reported window against the pin; issues one smoke request per sampling profile and checks for truncation; builds and probes one callable per role; measures and evaluates the wall clock against the budget.
+- **Outputs**: `model_revision`, `container`, `config`, `handles`, `registry`, `scheduler`, `wall_clock`, `budget`, `smoke`, `artifacts`, `role_callables`, `model_id`, `run_id`, `dry_run`, `backoff_applied`, `probe_calls`, `register_entries`.
+- **Transformation**: a pinned checkpoint becomes role-isolated sampling callables, so one role's parameters cannot leak into another. A dry run constructs nothing and only projects the wall clock.
+- **Research role**: "We use Qwen3-4B-Thinking … for all agents, with a temperature of 0.7 for the agents and 0.3 for the memory components"; the 600-second baseline mirrors "∼10 mins per agent".
+- **Equations**: sampling per role, and the wall-clock warning rule:
+
+$$
+\tilde f^{(a)}\sim\pi_\theta\bigl(\cdot\mid p^{(a)};\,T=0.7\bigr),\qquad \mathbf{Z}\sim\pi_\theta\bigl(\cdot\mid p^{\mathrm{distil}};\,T=0.3\bigr),\qquad \mathrm{warn}\iff t_{\mathrm{role}}>3\times600\ \mathrm{s}.
+$$
+
+- **Generation cap and seed**: the orchestrator's own defaults are 8,192 tokens and seed 0, so Task 22's serving stage passes `max_new_tokens=16384` (the paper's cap) and the registry's `vllm_sampler` seed for its single call (call index 0, the first plan seed); all replications share that one engine and sampler seed. Top-p 0.95, top-k 0 and repetition penalty 1.0 come from the study configuration as gap decisions.
+
+### Task 13 — `run_task_13`
+
+- **Inputs**: `perspective_agents`, `learnings_by_perspective`, `error_feedback_by_perspective`, `meta_contexts`, `agent_losses_by_context`, `incumbent_weights_by_context`, `meta_learnings`, `memory_records_by_perspective`, `tokenizer`, `output_dir`, `iteration`, `seed`; keyword `operator_whitelist`, `admissible_variables`, optional `agent_order`, `templates`, `distillation_priority` (`best_first`).
+- **Process**: assembles every specialist prompt, every context's meta-coordinator prompt and every distillation prompt of one iteration through three bound assemblers; counts each block with the server tokenizer as sent; truncates only the learnings block, by whole tail blocks; merges the prompt-hash registry and token log key by key.
+- **Outputs**: `specialist_prompts`, `meta_prompts` (keyed by context), `distillation_prompts`, `prompt_hashes`, `registry_path`, `token_log_path`, `n_registry_keys`, `assemblers` (`specialist`, `meta`, `distiller`) reused by Tasks 15, 19 and 20.
+- **Transformation**: philosophies, incumbents, learnings and structured errors become budget-certified prompts keyed by role, perspective or context, iteration and seed.
+- **Research role**: realises Algorithm 1's $p^{(a)}\leftarrow(a,\tilde f^{(a)},\mathbf{Z}^{(a)})$, its error-feedback union, and Algorithm 2's $p^{\mathrm{meta}}\leftarrow(C(i,t),\mathcal{L}^{(a)},\tilde{\mathbf{w}}_{C(i,t)},\mathbf{Z}^{\mathrm{meta}})$.
+- **Equations**: per-block token budgets with the 884-token slack, and the meta and distillation budgets:
+
+$$
+n_{\mathrm{phil}}\le1500,\ n_{\mathrm{prior}}\le3000,\ n_{\mathrm{learn}}\le8000,\ n_{\mathrm{err}}\le3000,\qquad 15500+884=16384,\qquad 200+400+200+4000=4800.
+$$
+
+- **Implementation distinction**: the distillation prompt follows Appendix E's eight blocks (Summary, Key Insights, Statistical Diagnostics, What Works, What Fails, Important Variables, Agent Adaptation Behavior, Design Principle) and drops schema tail blocks around the mandatory Summary and Key Insights core. Any budget breach raises `Task13PromptBudgetExceededError`.
+
+### Task 14 — `run_task_14`
+
+- **Inputs**: `candidates` (expression strings), `grammar_spec`, training `panel`, `iteration`, `output_dir`.
+- **Process**: builds the grammar once (anchor whitelist, declared variables, precedence tiers, bounds, version hash); parses each candidate by precedence into a canonical S-expression; validates names, bounds, logarithm and exponential domains, coverage and finiteness in priority order; encodes one structured error per rejection; writes the error ledger.
+- **Outputs**: `grammar`, `results` (tree and statistics, or a structured rejection with quantitative evidence), `n_ok`, `n_rejected`.
+- **Transformation**: free-text model output becomes either a validated, hashable expression tree or a machine-parseable error object (taxonomy code, action class, candidate hash, iteration); a bad candidate never raises.
+- **Research role**: "if the expression fails to execute (e.g., due to syntax errors, invalid operations, or non-finite outputs), the system returns structured feedback … which is incorporated into the prompt $p^{(a)}$."
+- **Equations**: over the eleven-token surface `+ - * / ^ log exp abs < > ind`, the bounds and the logarithm domain rule (a logarithm is rejected only if a finite argument is not strictly positive):
+
+$$
+\mathrm{depth}(T)\le8,\qquad \#\mathrm{ops}(T)\le30,\qquad \#\mathrm{vars}(T)\le12,\qquad \min_{r:\,u_r\ \mathrm{finite}}u_r>0\ \ \text{for each}\ \log u.
+$$
+
+- **Implementation distinction**: the whitelist covers the surface of the released equations (powers, fractional-power roots, absolute values, exponentials, logarithms, strict comparisons and indicator terms such as $(FCF_{\mathrm{ps}}<1.08)$); the bounds are anchor values, not paper parameters.
+
+### Task 15 — `run_task_15`
+
+- **Inputs**: replication `config`, partitioned `panel`, `target`, `output_dir`; keyword `codebook`, `role_callables`, `perspective_agents`, `tokenizer`, optional `operator_whitelist`, `grammar`, `retrieve_fn`, `session`, `train_mask`, `generator` (`model` or labelled `stand_in`), `standin_rng`, `gap_register`, `run_id`, `max_operators`.
+- **Process**: filters the admissible variables from the codebook and builds or validates the Task 14 grammar; fits each perspective's seed equation; runs the iteration body per perspective: Task 13 prompt, model draw, Task 14 parse, variable resolution through Task 11, Task 17 execution, Task 16 fit, Task 18 training profile, memory append, Task 19 distillation at the configured cadence; selects incumbents; emits artefacts.
+- **Outputs**: `initial`, `admissible`, `grammar`, `trajectory`, `incumbents`, `selection`, `artifacts`, `memory`, `learnings`, `evaluation_log`, `decisions`, `generator`, `replication_seed`, `register`, `paths`, `run_id`.
+- **Transformation**: five valuation philosophies become five fitted, interpretable incumbent equations with their memories and distilled learnings; the held-out error is logged for review but never drives selection.
+- **Research role**: Algorithm 1 (Philosophy Agent Training), with the generation step $\tilde f^{(a)}\sim\pi_\theta(\cdot\mid p^{(a)})$ and the memory loop:
+
+$$
+\hat y^{(a)}_{i,t+1}=\tilde f^{(a)}\bigl(\hat{\mathbf{x}}^{(a)}_{i,t}\bigr),\qquad \mathcal{L}^{(a)}=\mathrm{MAPE}\bigl(\hat y^{(a)}_{i,t+1},y_{i,t+1}\bigr),\qquad \mathbf{M}^{(a)}\leftarrow\mathbf{M}^{(a)}\cup\lbrace(\tilde f^{(a)},\mathcal{L}^{(a)})\rbrace,\qquad \mathbf{Z}^{(a)}\leftarrow\mathrm{UpdateLearnings}(\mathbf{M}^{(a)}).
+$$
+
+- **Implementation distinction**: the incumbent is the lowest-training-MAPE record, the earliest iteration winning ties. Iteration control applies the structural halt (a run of zero-valid iterations) first, then the iteration cap, then early stop. Variable names resolve exactly, then case-insensitively, then semantically above similarity 0.8 and training coverage 0.8. The `stand_in` generator is labelled `stand_in_not_the_method` and is not MUFASA.
+
+### Task 16 — `run_task_16`
+
+- **Inputs**: `config`, `frozen_ast` (the candidate structure), `panel`; keyword `seed_registry` or `seed` (exactly one), `replication` 0, `target`, `train_mask`.
+- **Process**: draws the seed from the Task 1 registry's `differential_evolution` target; builds the solver configuration from the structure's own numeric-leaf count; fits the coefficients by differential evolution in a symmetric-logarithm search space; predicts on every panel row; writes nothing.
+- **Outputs**: `solver_config` (with its SHA-256), `fit_result` (coefficients, loss, termination reason), `unscaled` (raw-scale coefficients and predictions), `seed`.
+- **Transformation**: a frozen symbolic skeleton becomes a fitted closed-form equation whose training predictions reproduce the fit within $10^{-9}$.
+- **Research role**: "we treat any scalar multipliers or parameters as continuous variables and optimize them directly with respect to the training data … We use differential evolution."
+- **Equations**: the training objective over the admissible block $R$ (finite, non-zero target; every variable finite), with a $10^{18}$ penalty for non-finite output:
+
+$$
+\hat\theta=\arg\min_{\theta\in[-10^{6},10^{6}]^{p}}\ \frac{1}{|R|}\sum_{r\in R}\frac{|f_\theta(\mathbf{x}_r)-y_r|}{|y_r|},\qquad N_{\mathrm{pop}}=15p,\quad G_{\max}=200,\quad CR=0.7,\quad F=0.5.
+$$
+
+- **Implementation distinction**: the search stops early after 20 generations without improvement above $10^{-6}$, and the termination reason distinguishes a stall, a tolerance stop and an exhausted budget. These hyperparameters are gap-resolved; the paper names only the optimiser.
+
+### Task 17 — `run_task_17`
+
+- **Inputs**: `expression`, `design_matrix`, unique `row_keys`; keyword `timeout_s` 30, `nan_tolerance` $10^{-300}$, `min_coverage` 0.8, optional `session`, `grammar`.
+- **Process**: compiles the candidate against the matrix columns under the grammar's whitelist; executes it in a long-lived worker interpreter that can be killed at the deadline; audits the prediction vector; builds machine-parseable feedback.
+- **Outputs**: `status`, `candidate_hash`, `predictions` aligned to `row_keys`, `defined` mask, `coverage`, `reason_code`, `detail`, `feedback`, `error`, `ledger`, `mechanism`, `mechanism_reason`, `tree`, `sexpr`, per-stage `records`.
+- **Transformation**: an expression and a design matrix become a row-keyed prediction vector, or a structured candidate fault; only internal faults raise `Task17InternalErrorTask17`.
+- **Research role**: "Each candidate expression is represented as an executable program, enabling direct evaluation" through Equation (2); Table 1's Complexity family records "Prediction Coverage".
+- **Equations**: coverage and the audit order (non-finite output, constant output, indicator of missing data, insufficient coverage):
+
+$$
+\hat{\mathbf{y}}=\tilde f^{(a)}(\mathbf{X}),\qquad \mathrm{cov}=\frac{1}{N}\sum_{r=1}^{N}\mathbf{1}\lbrace\hat y_r\ \text{finite}\rbrace,\qquad \mathrm{cov}<0.8\Rightarrow\mathtt{insufficient\_coverage}.
+$$
+
+- **Implementation distinction**: a timeout returns the non-finite-output code with no predictions; an in-process guard is used only for a callable that cannot travel to the worker, and that mechanism is recorded.
+
+### Task 18 — `run_task_18`
+
+- **Inputs**: `candidates` (hash, structure hash, expression, perspective, iteration, predictions, actuals, optional complexity), `memory`, `ledger_path`; `run_id`, `seed`, `partition` (`train`), `cap` 500.
+- **Process**: profiles each candidate over seven families; appends the profile to memory under its canonical structure hash; appends one fsynced ledger line with provenance; verifies the identity join between ledger and memory after every append.
+- **Outputs**: `profiles` keyed by candidate hash, extended `memory`, `ledger_path`, `n_candidates`.
+- **Transformation**: noisy prediction-actual pairs become a seven-family reliability profile stored in a capped, deduplicated statistical memory, rather than a scalar loss.
+- **Research role**: Table 1: "Rather than storing only a scalar loss, memory records each hypothesis together with a statistical summary of its observed behavior."
+- **Equations**: signed and absolute errors, MSPE, the stability CV over per-quarter mean errors $\bar a_q$ (population SD), and the worst-decile mean:
+
+$$
+e_r=\frac{\hat y_r-y_r}{|y_r|},\qquad \mathrm{MAPE}=\frac{1}{n}\sum_r|e_r|,\qquad \mathrm{MSPE}=\frac{1}{n}\sum_r e_r,\qquad \mathrm{CV}=\frac{\sigma(\bar a_q)}{\mu(\bar a_q)},\qquad \mathrm{WD}=\frac{1}{k}\sum_{j=1}^{k}|e|_{(j)},\ k=\max(1,\lceil0.1n\rceil).
+$$
+
+- **Families**: accuracy (mean, median APE), stability (SD, IQR, CV), tail risk (p90, p95, worst decile), complexity (variable and operator counts, coverage), bias (MSPE), ranking (Spearman $\rho$), calibration (mean signed error per quartile of actual price).
+- **Implementation distinction**: eviction removes the oldest entry outside an elite of at most one tenth of the cap with the smallest MAPE; a re-sighted structure updates in place; every statistic is a fraction.
+
+### Task 19 — `run_task_19`
+
+- **Inputs**: `memory`, `transport`, `perspective`, `iteration`; keyword `out_dir`, `max_records`, `tokenizer`, optional `ledger`, `seed`, `prior_blocks`, `max_resamples` 3, `codebook_symbols`, `n_perspectives` 5, `gap_register`, `memory_regime`.
+- **Process**: builds the distillation prompt (four constraint lines, eight block headers, one JSON line per retained record) under the declared memory regime; draws at temperature 0.3; parses the eight sections; resamples a malformed or ungrounded reply up to the budget; retries transport failures on their own budget; falls back to the prior iteration's blocks; writes the artefact.
+- **Outputs**: the perspective, iteration, prompt and digest, blocks, learnings text, attempt and rejection record, grounding verdict, drop counts, artefact path, and the regime with its binary threshold and headers.
+- **Transformation**: a statistical memory becomes grounded natural-language learnings $\mathbf{Z}^{(a)}$ in the Appendix E schema.
+- **Research role**: "From the memory, we distill a set of learnings $\mathbf{Z}^{(a)}$, which guide the generation of new hypotheses at the beginning of the loop."
+- **Equations**: Algorithm 1's update, and the grounding rule for each printed number $\nu$ against the recorded numeric fields $\mathcal{V}$ (in fraction and percent form) and the run's admissible counts $\mathcal{K}$:
+
+$$
+\mathbf{Z}^{(a)}\leftarrow\mathrm{UpdateLearnings}(\mathbf{M}^{(a)}),\qquad \nu\ \text{grounded}\iff\exists v\in\mathcal{V}:\ \mathrm{round}\bigl(v,\mathrm{prec}(\nu)\bigr)=\nu\ \ \text{or}\ \ \nu\in\mathcal{K}.
+$$
+
+- **Implementation distinction**: a causal-mechanism phrase violates only in a sentence with no grounded number, and every symbol-like identifier must be an exact codebook symbol. Digits inside recorded expression strings are not admissible evidence.
+
+### Task 20 — `run_task_20`
+
+- **Inputs**: Task 15's long `predictions` frame, `output_dir`, `k_worldviews` 5, `n_iterations` 30, `min_firm_quarters` 200, `seed`; keyword `role_callables`, `tokenizer`, `perspectives`, `allow_stand_in`, `allow_fixture`, `memory_cap` 500, `distil_every` 10, `min_perspectives` 2, `solver_config`, `declared_cells`, `gap_register`, `run_id`.
+- **Process**: pivots to a wide per-cell frame; builds the cell registry on training rows with uniform initial weights; trains every pool and unflagged cell once with its own derived seed. Each iteration assembles the Task 13 meta prompt, calls the meta role through the Task 19 adapter, certifies the reply's weights, scores them and updates the incumbent on strict improvement; meta-memory is distilled every 10 iterations. A constrained SLSQP reference fit runs beside the policy.
+- **Outputs**: `weights`, `per_cell_weights`, `per_cell_loss`, `weights_source`, `pool_of_cell`, `z_meta`, `meta_learnings`, `registry`, `cell_registry`, `trained`, perspective lists, `stand_in`, `trajectory_path`, `paths`, `gap_register`, `n_rows_without_context`, `run_id`, `seed`.
+- **Transformation**: per-perspective forecasts and context labels become a context-indexed weight vector per cell, with meta learnings $\mathbf{Z}^{\mathrm{meta}}$ and a labelled weight source.
+- **Research role**: Algorithm 2 (Meta-Coordinator Training): "It then selects a subset of agents, and computes their weight vector $\tilde{\mathbf{w}}_{C(i,t)}$ via SLSQP-based … constrained optimization."
+- **Equations**: Equations (4) and (5) on the simplex $\Delta^{K-1}$, with $\tilde{\mathbf{w}}^{(0)}=\mathbf{1}/K$:
+
+$$
+\tilde{\mathbf{w}}_{C}\sim\pi_\phi(\cdot\mid p^{\mathrm{meta}}),\qquad \hat y_{i,t+1}=\tilde{\mathbf{w}}_{C(i,t)}^\top\hat{\mathbf{y}}_{i,t+1},\qquad \mathcal{L}^{\mathrm{meta}}=\mathrm{MAPE}(\hat y_{i,t+1},y_{i,t+1}),\qquad \tilde{\mathbf{w}}\in\Delta^{K-1}.
+$$
+
+- **Implementation distinction**: a cell below 200 distinct training firm-quarters escalates to `sector|POOLED`, then to the market pool, and each escalation is registered. The published vector is the lower-loss of the policy incumbent and the SLSQP reference optimum. A seeded Dirichlet stand-in is used only when `allow_stand_in` is set, and is labelled.
+
+### Task 21 — `run_task_21`
+
+- **Inputs**: Task 15's long `predictions` frame, `output_dir`; keyword `perspectives`, `min_firm_quarters` 200, `solver_config`, `n_starts` 8, `seed`, optional `task_20_weights` and `released_matrix`, `run_id`.
+- **Process**: pivots to the wide frame; processes each market separately through the occupancy registry; fits each cell or pool once from the uniform start and $n_{\mathrm{starts}}-1$ seeded Dirichlet starts; assembles the frozen matrix on (market, sector, regime); applies it to held-out rows without refitting; compares the fitted, Task 20 and released matrices cell by cell.
+- **Outputs**: `weight_matrix`, `heldout_predictions`, `comparison`, `variant_identification`, `fits`, `n_fallback_cells`, `n_cells`, perspective lists, `n_rows_without_context`, `overall`, `paths`, `run_id`, `seed`.
+- **Transformation**: training forecasts become the frozen context-indexed weight matrix, one of the study's three institutional assets, and test-period aggregates.
+- **Research role**: "computes their weight vector … via SLSQP-based constrained optimization"; Appendix D reports the learnt weights over Earnings, Cash Flow, Asset, Growth and Quality by sector and regime.
+- **Equations**: the constrained objective per cell $c$, solved with feasibility tolerance $10^{-8}$, optimality tolerance $10^{-10}$ and 500 iterations:
+
+$$
+\hat{\mathbf{w}}_c=\arg\min_{\mathbf{w}}\ \frac{1}{|R_c|}\sum_{r\in R_c}\frac{|\mathbf{w}^\top\hat{\mathbf{y}}_r-y_r|}{|y_r|}\quad\text{s.t.}\quad \mathbf{w}\ge\mathbf{0},\ \ \mathbf{1}^\top\mathbf{w}=1.
+$$
+
+- **Implementation distinction**: every start runs to completion; only starts whose raw solution meets the feasibility tolerance are candidates. The best candidate is projected into the simplex and re-scored, and the call halts when no start is feasible.
+
+### Task 22 — `run_task_22`
+
+- **Inputs**: `panels` (`fundamentals`, `prices`, `macro`, `universe`, optional `classifications`), `config`, `seeds`; keyword `run_id`, optional `services` and `stages`, `checkpoint_dir`, `registry_dir`, `resume` (default true).
+- **Process**: the planner fixes the run identifier, stage order, perspectives and seeds. The composer validates the stage chain statically. Seed-independent stages run once in a shared scope and seed-scoped stages run per seed. Before each stage, consumed names and preconditions are checked; a matching checkpoint is resumed; returned outputs must equal the declared outputs exactly. After each seed, Equation (4) aggregation is checked against Task 21's held-out aggregate.
+- **Outputs**: `run_id`, `inputs_digest`, `seeds`, `runs`, `stage_status`, `registry_paths`, `checkpoint_dir`, `plan`, `scope_contexts`; per seed, an artefact entry with aggregated predictions, fitted expressions, weight matrix, distilled learnings, reliability profiles and provenance.
+- **Transformation**: four panels and a configuration become the complete MUFASA discovery run, from point-in-time panel to context-weighted valuations, with every sub-task failure contained as `Task22HaltError`.
+- **Research role**: the full framework of Figure 2: disentangled self-evolving agents, hierarchical-level reasoning and statistical agent memory.
+- **Equations**: each row's weight row, selected by the label `market::context_key`, must be finite, non-negative and sum to one within $10^{-6}$:
+
+$$
+\hat y_{i,t+1}=\sum_{a\in\mathcal{A}}\tilde w_{C(i,t),a}\,\hat y^{(a)}_{i,t+1},\qquad \tilde w_{C,a}\ge0,\qquad \Bigl|\sum_a\tilde w_{C,a}-1\Bigr|\le10^{-6}.
+$$
+
+- **Implementation distinction**: a row without a context, without a weight row, or missing a weighted perspective's prediction carries a missing aggregate counted by cause. Two Equation (4) implementations that disagree halt the run.
+
+### Task 23 — `run_task_23`
+
+- **Inputs**: Task 7's partitioned `panel`, `target`, `config` (features, seeds, column names, `rf`, `histgbm`, `nn` settings), `output_dir`; keyword `frozen_document`, `freeze_token`, optional `features`, `seeds`, `run_id`.
+- **Process**: verifies the freeze token, then builds one shared feature policy verbatim from Task 7's frozen statistics; selects fitting, validation and test blocks from Task 7's labels with embargo rows excluded; applies the policy unchanged to all three blocks; trains Random Forest, HistGBM and a one-hidden-layer network for every registry seed.
+- **Outputs**: `policy`, `fit_hash`, long `predictions` (model, market, quarter, firm, seed, block), `losses`, `model_results`, `blocks`, `freeze_digest`, `split_digest`, `features`, `seeds`, `markets`, `paths`, `run_id`.
+- **Transformation**: frozen statistics and partitioned features become equalised design matrices and learned baseline forecasts that share one split and one preprocessing with MUFASA.
+- **Research role**: the baselines "Random Forest …, HistGBM …, and NeuralNet" of Table 2.
+- **Equations**: the shared policy per feature, using frozen bounds, frozen mean $\mu$ (also the imputation value) and frozen population SD $\sigma$:
+
+$$
+z=\frac{\tilde x-\mu}{\sigma},\qquad \tilde x=\begin{cases}\min(\max(x,q_{01}),q_{99}),&x\ \text{finite}\\ \mu,&\text{otherwise.}\end{cases}
+$$
+
+- **Implementation distinction**: RF uses 500 trees, square-root feature sampling and single-sample leaves. HistGBM uses learning rate 0.1, 200 iterations, 31 leaves, minimum 20 samples and 255 bins, with early stopping explicitly off. The network is a NumPy implementation with Adam, because no deep-learning runtime is assumed. Compute is logged in a separate ledger.
+
+### Task 24 — `run_task_24`
+
+- **Inputs**: training, validation and test design matrices and targets with identical columns, `scratch_dir`; keyword `seed`, optional `pysr_search`, `funsearch_client`, `llm_sr_client`, `budgets` (default 20 iterations each), `config`, `variable_descriptions`, `run_id`.
+- **Process**: runs PySR (27 populations, 30 iterations, maximum size 30, binary $+,-,\times,/$, unary square, cube, exp, log, sqrt, abs), scoring every candidate from its own program; runs FunSearch with the top 3 programs in each prompt; runs LLM-SR with the shared Task 16 fitter. Each search uses training rows and its own registry-derived seed; selection uses validation rows; the selected program is evaluated once on test.
+- **Outputs**: `baselines` (status, reason, expression, errors, budget, seed per method), `availability`, `manifest_path`, `variables`, `run_id`, `seed`.
+- **Transformation**: three symbolic-regression searches become comparable selected expressions; a missing client makes its baseline `unavailable` rather than substituted.
+- **Research role**: "PySR …, FunSearch …, and LLM-SR … do symbolic discovery for scientific equations using evolutionary algorithms or an iterative single-LLM loop."
+- **Equations**: PySR's per-row loss and the Pareto rule over complexity $\kappa$ and training error $L$:
+
+$$
+\ell(\hat y,y)=\left|\frac{\hat y-y}{y}\right|,\qquad c\in\mathcal{F}\iff\nexists\,c':\ \kappa(c')\le\kappa(c),\ L(c')\le L(c),\ \bigl(\kappa(c')<\kappa(c)\ \text{or}\ L(c')<L(c)\bigr).
+$$
+
+- **Implementation distinction**: candidates are compiled through an AST-whitelisted evaluator and never scored on supplied predictions; a search in which nothing scored halts; LLM-SR returns its best fitted iteration, not its last draw.
+
+### Task 25 — `run_task_25`
+
+- **Inputs**: `panel`, quarterly `macro`, LLM `client`, `models` (Fin-R1, Fino1), `allowed_fields`, `target_column`, `erp` (decimal), `output_dir`; keyword `run_id`, optional `schema_overrides`, `yield_columns`, `initial_vintage`; `flow_convention` defaults to `trailing`.
+- **Process**: resolves logical schema names once; runs the leakage-controlled LLM baseline row by row; prices four sector-median multiples; prices three single-stage Gordon models; stacks all predictions as one long frame keyed by (model, market, quarter, firm).
+- **Outputs**: `llm`, `sector_median`, `gordon`, `predictions`, `coverage`, `schema`, `gordon_reason_counts`, `flow_convention`, `warnings`, `assumptions`, `gap_decisions`, `llm_coverage`, `paths`, `n_register_records`, `run_id`.
+- **Transformation**: fundamentals become financial-LLM and classical valuation forecasts; a target in the whitelist halts before any prompt exists, and an unparseable reply is a recorded row-level miss.
+- **Research role**: the Financial LLMs and Financial Valuation baselines; "We use the single-stage Gordon Growth Model …, which assumes constant growth."
+- **Equations**: sector-median products, and Gordon pricing with $r$ = local sovereign yield joined by (market, quarter) plus ERP, and $g$ = sustainable growth (decimal):
+
+$$
+\hat P^{PE}=EPS\cdot\widetilde{PE}_s,\quad \hat P^{EV/EBIT}=EBIT_{\mathrm{ps}}\cdot\widetilde{EV/EBIT}_s,\quad \hat P^{DDM}=\frac{D}{r-g},\quad \hat P^{FCFE}=\frac{FCFE_{\mathrm{ps}}}{r-g},\quad \hat P^{FCFF}=\frac{FCFF/(r-g)-(D_{\mathrm{tot}}-\mathrm{Cash})}{S_{\mathrm{diluted}}}.
+$$
+
+- **Implementation distinction**: EV/EBITDA and P/B follow the same product form. Rows with $r\le g$ are undefined with a reason. Prices are converted to the trading currency by the frozen FX rate. FCFF is discounted at the same rate $r$, since the manuscript gives no WACC.
+
+### Task 26 — `run_task_26`
+
+- **Inputs**: `panel` of firm-quarters, `config` (frameworks, `framework_adapters`, feature policy object, `framework_timeout_s` default 300), `output_dir`.
+- **Process**: drives FinCon and FinVision through declared adapters (API version 1) under the same fitted Task 23 feature policy; registers an unreproducible framework as `unavailable` with its reason instead of halting; builds three naive benchmarks; writes one keyed registry file per model with a manifest.
+- **Outputs**: `agentic` (`panel_rows`, per-model records with status, reason, predictions, failure class, adapter identity, policy digest, release probe), `naive`, `registry`, `output_dir`.
+- **Transformation**: agentic frameworks and price history become comparable price-level forecasts, each admitted only with exactly one finite value per (firm, quarter).
+- **Research role**: the Financial agentic frameworks "FinCon …; FinVision" of Table 2, and the naive price-level comparators of the scorecard.
+- **Equations**: the naive benchmarks from period-end prices within market $m$ and calendar quarter $t$:
+
+$$
+\hat y^{\mathrm{pers}}_{i,t+1}=y_{i,t},\qquad \hat y^{\mathrm{mean}}_{i,t+1}=\frac{1}{|\mathcal{N}_{m,t}|}\sum_{j\in\mathcal{N}_{m,t}}y_{j,t},\qquad \hat y^{\mathrm{trend}}_{i,t+1}=y_{i,t}\,\frac{y_{i,t}}{y_{i,t-1}}.
+$$
+
+- **Implementation distinction**: the built-in notebook adapter calls the framework release's own operator-declared entry point (`package.module:function`); it does not imitate FinCon or FinVision. A trend row with a zero denominator is dropped with a warning; prices of different markets are never averaged together.
+
+### Task 27 — `run_task_27`
+
+- **Inputs**: `predictions`, `actuals`, `output_dir`, optional `complexity_by_model`; keyword `declared_markets`.
+- **Process**: classifies rows as scored, uncovered or inadmissible; computes three MAPE aggregations per model and market with coverage; computes secondary metrics per model-market plus one across-market row per model; reshapes the shared Task 18 profile into seven-family reliability profiles; writes all artefacts.
+- **Outputs**: `mape_variants`, `secondary_metrics`, `reliability_profiles`, `losses`, `coverage`, `unmatched_predictions`, `artifact_paths`.
+- **Transformation**: predictions and actuals become the study's error tables and per-model reliability profiles, the third institutional asset, evaluated on the test partition.
+- **Research role**: "We evaluate the models on Mean Absolute Percentage Error (MAPE)", with Appendix G's Spearman correlation, error percentiles and quartile MSPE as secondary evidence.
+- **Equations**: pooled, per-quarter and per-firm aggregations of the same scored rows:
+
+$$
+\mathrm{MAPE}_{\mathrm{pool}}=\frac{1}{N}\sum_{i,t}a_{i,t},\qquad \mathrm{MAPE}_{\mathrm{qtr}}=\frac{1}{|\mathcal{T}|}\sum_{t}\frac{1}{N_t}\sum_{i}a_{i,t},\qquad \mathrm{MAPE}_{\mathrm{firm}}=\frac{1}{|\mathcal{I}|}\sum_{i}\frac{1}{N_i}\sum_{t}a_{i,t}.
+$$
+
+- **Implementation distinction**: a zero, missing or non-finite actual is classified inadmissible and counted, a declared deviation from the task list's $10^{-8}$ floor. Pooled and per-quarter figures diverging by more than 0.1 warn. Bounded scores are $1-\min(1,\mathrm{MAPE})$ (with a 1.96 normal interval) and $1-\min(1,\sigma)$. Currencies are never ranked or binned together.
+
+### Task 28 — `run_task_28`
+
+- **Inputs**: long `losses` (market, firm, quarter, model, loss), `model_name`, `baseline_names`, optional `h`, `fdr_alpha`, `n_comparisons`; keyword `config` (its `evaluation` block ties level and horizon), `markets`, `output_dir`.
+- **Process**: builds per-market quarterly loss differentials; computes the Newey–West Diebold–Mariano statistic with the HLN correction; computes the two-way clustered statistic on matched firm-quarter cells; records degenerate comparisons without halting; applies Benjamini–Hochberg separately to both views with the full family size; reports a pooled diagnostic.
+- **Outputs**: `significance_table`, `differentials`, `dm_table`, `clustered_components`, `family_size`, `n_degenerate`, `n_in_step_up`, `alpha`, `h`, `parameter_source`, `primary_view` (`two_way_clustered`), `primary_view_statement`, `pooled_diagnostic`, `paths`.
+- **Transformation**: per-row losses become a multiplicity-controlled significance table for MUFASA against each baseline in each market.
+- **Research role**: Appendix B applies the DM test "under absolute percentage error loss" with Newey–West HAC under a Bartlett kernel, Andrews' bandwidth and the HLN correction against "a $t_{T-1}$ reference distribution".
+- **Equations**: $d_t=\bar\ell^{\mathrm{model}}_t-\bar\ell^{\mathrm{base}}_t$ (negative favours MUFASA), autocovariances $\hat\gamma_k$, at least 5 quarters:
+
+$$
+L=\left\lfloor4\left(\frac{T}{100}\right)^{2/9}\right\rfloor,\qquad \hat\sigma^2_{\mathrm{LR}}=\hat\gamma_0+2\sum_{k=1}^{L}\left(1-\frac{k}{L+1}\right)\hat\gamma_k,\qquad DM=\frac{\bar d}{\sqrt{\hat\sigma^2_{\mathrm{LR}}/T}},\qquad DM^{\ast}=DM\sqrt{\frac{T+1-2h+h(h-1)/T}{T}}.
+$$
+
+- **Implementation distinction**: two-way clustering, $V=V_{\mathrm{firm}}+V_{\mathrm{quarter}}-V_{\cap}$ (the quarter term itself Newey–West), and Benjamini–Hochberg control are additions beyond Appendix B's two corrections; the clustered view is stated as primary. Defaults are $\alpha=0.05$ and $h=1$.
+
+### Task 29 — `run_task_29`
+
+- **Inputs**: model-keyed `predictions`, `actuals`, `config`, `output_dir`; keyword optional `metrics_result` and `inference_result`.
+- **Process**: validates alignment on the composite key; runs Task 27 over the available models unless a result is supplied; runs Task 28 for the principal model against every other available model unless supplied; composes the six-block scorecard; emits paper-labelled tables and figures and an optional secondary pairwise family.
+- **Outputs**: `scorecard`, `paths`, `coverage`, `unavailable_models`, `metrics`, `inference`, `secondary_pairwise`.
+- **Transformation**: the canonical union (MUFASA, the 17 baselines of Table 2 and three naive benchmarks) becomes one comparative scorecard; nothing is computed twice.
+- **Research role**: the Table 2 performance comparison, Table 5 DM tests, and the Appendix G analyses (Figures 5–8: rank correlation, sector error distributions, aggregate APE percentiles and directional bias).
+- **Equations**: no new statistic. The headline cell is the pooled MAPE of Task 27, and each inference cell is Task 28's tested differential:
+
+$$
+\mathrm{score}_{m,k}=\mathrm{MAPE}^{\mathrm{pool}}_{m,k},\qquad d_{m,k}=\mathrm{MAPE}_{\mathrm{MUFASA},k}-\mathrm{MAPE}_{m,k}\ \ (\text{Table 5 sign convention}).
+$$
+
+- **Implementation distinction**: the rendering pins its own Agg canvas rather than switching the process backend. A model that supplied nothing must be declared unavailable with its reason; the principal model being unavailable halts. Without the licensed panel, figures render the scorecard's own computed data.
+
+### Task 30 — `run_task_30`
+
+- **Inputs**: `base_config`, contractual `panels`, `seeds`, `out_dir`; keyword `run_id`, optional `services`, `runner` (default: the real Task 22 pipeline), `markets`, `single_agent`, `published`, `gap_register_path`.
+- **Process**: builds five variant configurations (`SINGLE_PERSPECTIVE`, `EQUAL_WEIGHTS`, `NO_STATS_MEMORY`, `BEST_SINGLE_AGENT`, `FULL_MUFASA`); runs every variant for every registry seed through the runner; scores each seed with Task 27; runs one Task 28 family over seed-averaged losses (non-reference variants × markets); emits the table and registers.
+- **Outputs**: `variants`, `results`, `table`, `paths`, `manuscript_discrepancies`, `reproduction_comparison`, `family_size`, `alpha`, `markets`, `seeds`, `run_id`, `unit`.
+- **Transformation**: one base configuration becomes a per-market ablation table with per-seed medians, IQRs, a tested difference from the full framework, and a verdict per cell.
+- **Research role**: Table 3, "Ablation study on perspective variant", which isolates disentanglement, hierarchical coordination and statistical memory.
+- **Equations**: seed-averaged cell losses and the tested differential (negative with rejection favours the full framework):
+
+$$
+\bar\ell_{v,m,i,t}=\frac{1}{|\mathcal{S}|}\sum_{s\in\mathcal{S}}\ell_{v,m,i,t,s},\qquad d_{v,m}=\bar\ell_{\mathrm{FULL},m}-\bar\ell_{v,m}.
+$$
+
+- **Fidelity finding**: `NO_STATS_MEMORY` sets `memory_mode = "none"` (an empty learnings block). Table 3's No-Stats-Memory row equals Table 10's "MAPE-Only Memory, Multi-Agent (Meta-Coordinator)" row in every market (0.4702, 0.7525, 0.5398, 0.5852, 0.4852), which indicates scalar MAPE memory. Resolve this before comparing with Table 3. `BEST_SINGLE_AGENT` selects on training rows only.
+
+### Task 31 — `run_task_31`
+
+- **Inputs**: `base_config` (with the `memory_ablation` block, including a required `softmax_temperature`), `panels`, `seeds`, `out_dir`; keyword `run_id`, optional `services`, `regimes`, `strategies`, `pipeline_runner`, `markets`.
+- **Process**: builds twelve cells, three memory regimes (`BINARY_PASS_FAIL`, `MAPE_ONLY`, `FULL_STATISTICAL`) crossed with four coordination strategies (`CONTEXT_LEARNED`, `EQUAL`, `BEST_SINGLE`, `SOFTMAX`); runs the pipeline once per regime and seed; re-weights each pass by the four strategies; tests every cell against `FULL_STATISTICAL::CONTEXT_LEARNED` through Task 30's single family.
+- **Outputs**: `run_id`, `cells`, `grid`, `tests`, `family_size`, `alpha`, `losses`, `markets`, `regimes`, `strategies`, `seeds`, `reference_cell`, `weights`, `regime_diagnostics`, `settings`, `cell_definitions`, `paths`, `unit`, `predictions`.
+- **Transformation**: three memory contents × four combination rules become a 3 × 4 error grid per market with per-cell verdicts.
+- **Research role**: Table 10 (Appendix F): "Binary Memory refers to storing past equations with binary pass/fail signals only, MAPE-Only Memory stores their MAPE performance, while Full Statistical Memory stores the full suite of statistical information listed in Table 1."
+- **Equations**: the binary regime's indicator with threshold the training median of the memory's MAPEs, and strategy re-weighting by Equation (4):
+
+$$
+b_j=\mathbf{1}\bigl\lbrace\mathrm{MAPE}_j<\mathrm{median}_{\mathbf{M}}(\mathrm{MAPE})\bigr\rbrace,\qquad \hat y^{(\mathrm{strat})}_{i,t+1}=\mathbf{w}_{\mathrm{strat}}^\top\hat{\mathbf{y}}_{i,t+1}.
+$$
+
+- **Fidelity finding**: Table 10's strategy rows are Single-Perspective Agent, Equal Weights, Best Single Agent and Meta-Coordinator. The code replaces the Single-Perspective Agent, which is a separate one-agent discovery run rather than a re-weighting, with a softmax of training losses whose temperature the paper does not publish. Reduced regimes distil only the Key Insights and Design Principle blocks. A non-model generator halts.
+
+### Task 32 — `run_task_32`
+
+- **Inputs**: `config` (`memory_ablation` block, optional `published_table`), `panels`, `seeds` (exactly `n_seeds`, default 5), `output_dir`; keyword `run_id`, optional `services`, `pipeline_runner`, `markets`, `perspective_ablation`, `gap_register_path`.
+- **Process**: builds the three regime specifications (step 1); crosses them with the coordination strategies through `run_task_31` (step 2); emits the per-market table, effect register, cross-table check, manuscript comparison and gap-register appends (step 3).
+- **Outputs**: `run_id`, `regimes`, `strategies`, `markets`, `seeds`, `cells`, `reference`, `family_size`, `alpha`, `unit`, `table`, `effect_register`, `cross_table_check`, `manuscript_comparison`, `gap_records`, `n_gap_records`, `coverage`, `paths` (four files plus `grid`), `regime_diagnostics`.
+- **Transformation**: the Task 31 grid becomes a published memory-ablation table whose effects are classified against seed variability and cross-checked against the perspective ablation.
+- **Research role**: Table 10's claim that "using the full statistical memory typically result in the strongest performance across all model variants."
+- **Equations**: the effect of a non-reference cell against the reference, classified against the summed seed IQRs:
+
+$$
+\delta_{c,m}=\widetilde{\mathrm{MAPE}}_{c,m}-\widetilde{\mathrm{MAPE}}_{\mathrm{ref},m},\qquad |\delta_{c,m}|>\mathrm{IQR}_{c,m}+\mathrm{IQR}_{\mathrm{ref},m}\Rightarrow\text{effect beyond seed noise}.
+$$
+
+- **Implementation distinction**: the cross-table check compares only the configuration the two ablations share (Task 30's `FULL_MUFASA` against `FULL_STATISTICAL::CONTEXT_LEARNED`). Disagreements are appended to the study's gap register, and the manuscript comparison uses the same fraction unit.
+
+### Task 33 — `run_task_33`
+
+- **Inputs**: `config` (`pipeline` and `sensitivity` blocks), `panels`, `seeds`, `output_dir`; keyword `run_id`, optional `grid`, `services`, `runner`, `markets`, `baselines` (Task 30 and Task 32 results).
+- **Process**: validates the grid; builds the primary configuration plus one whole configuration per changed (setting, value); runs every cell through the real Task 22 pipeline for every seed; scores with Task 27 and tests every cell against the primary in one Task 28 family through Task 30's functions; reads the Task 30 and 32 reference cells as baselines; reports cache hits from Task 22's own checkpoints.
+- **Outputs**: `report` (rows, scoring rows, cache statistics, baselines, units), `cells` (the sweep's result), `paths` (report and table).
+- **Transformation**: declared configuration paths become a multiplicity-controlled sensitivity report of held-out error against the primary specification.
+- **Research role**: answers the Limitations: "Some components in our framework are manually designed, such as the number of agent perspectives or market contexts" and "evaluating across all possible assumption variants could be intractable".
+- **Equations**: no new statistic; each cell $c$ is tested against the primary with the Task 28 statistic, under Benjamini–Hochberg control across the family:
+
+$$
+d_{c,m,t}=\bar\ell_{\mathrm{PRIMARY},m,t}-\bar\ell_{c,m,t},\qquad p^{\mathrm{BH}}_{(j)}=\min_{k\ge j}\ \min\left(1,\frac{F}{k}\,p_{(k)}\right).
+$$
+
+- **Implementation distinction**: a value equal to the primary's is not rerun but reported as `same_as_primary`; scoring-only settings (aggregation order) build no run cell. The service stages Tasks 11 and 12 are rebuilt because their outputs are live callables.
+
+### Task 34 — `run_task_34`
+
+- **Inputs**: `config`, `panels`, `seeds`, `output_dir`; keyword `run_id`, optional `services`, `tokenizer`, `runner`, `markets`, `baselines`; `parts` defaults to (`shuffled_prior`, `battery`, `communication`).
+- **Process**: validates the run identifier and requested parts, the communication part also requiring the model generator and the server tokenizer; runs the shuffled-prior control, the sensitivity battery (one Task 33 call) and the cross-perspective communication variant in that order; archives each part with SHA-256 digests and a manifest.
+- **Outputs**: `shuffled_prior`, `battery`, `communication`, `paths`, `manifest`, `parts`; a part not requested is `None`, never silently skipped.
+- **Transformation**: the pipeline is re-run under controls that test whether the discovered equations follow the philosophy prompts and whether isolated agents lose information.
+- **Research role**: tests the claim that "perspective disentanglement promotes economically grounded equation discovery", and probes the two interface boundaries, scalar cross-perspective summaries and natural-language memory.
+- **Equations**: one deterministic non-identity assignment $\pi_s$ per seed $s$ of the $K$ philosophies to the agent slots, drawn from `SeedSequence([seed, attempt])`:
+
+$$
+\pi_s\in S_K\setminus\lbrace\mathrm{id}\rbrace,\qquad \mathrm{slot}\ k\ \text{receives philosophy}\ a_{\pi_s(k)}.
+$$
+
+- **Implementation distinction**: each incumbent is classified into an equation family by its variables' families and its operator skeleton, and the report says whether that family follows the slot or the philosophy. The battery sweeps six settings: retrieval depth (5, 10, 20), halved memory cap, weight constraint, regime causality, aggregation order and operator bound. The communication block is extracted from other perspectives' learnings within 400 tokens, not model-written.
+
+### Task 35 — `run_task_35`
+
+- **Inputs**: `expressions`, `weights`, `learnings`, `provenance` (`run_id`, `config_hash`, `codebook_hash`, `data_extract_hash`, `git_commit`, `timestamp_utc`), `gate_results`, `gap_register`, `out_dir`, `page_size`; keyword `perspective_order`.
+- **Process**: validates the six provenance fields; verifies the nine gates (0–8) from the executing pipeline's rows, each with an evidence digest; on any failure writes only the failure record. Otherwise it writes the expression registry, weight matrix, paginated learnings history, index and publication package into a staging directory, then moves each file into `out_dir`.
+- **Outputs**: `stages`, `artefacts`, `learnings`, `publication`, `paths` (final locations), `run_id`.
+- **Transformation**: the run's three institutional assets (fitted equations, context weight matrix, reliability profiles), with learnings and the gap register, become one digest-bound, atomically published package.
+- **Research role**: "The learnt equations for other datasets, the meta-coordinator weights, and the distilled agent learnings $\mathbf{Z}^{(a)}$ are in Appendices C, D, and E."
+- **Equations**: every published weight row must lie on the simplex, and coefficients are published at full precision beside six significant figures:
+
+$$
+w_{c,a}\ge0,\qquad \Bigl|\sum_{a}w_{c,a}-1\Bigr|\le10^{-8},\qquad \theta^{\mathrm{pub}}=\mathrm{round}_{6\,\mathrm{s.f.}}(\theta).
+$$
+
+- **Implementation distinction**: a gate row without evidence, a repeated (gate, check) pair, or a gate without a check is refused. The package embeds three verbatim disclosures, including that the headline error is not uniquely reconstructable, and binds every file by SHA-256 and size.
+
+### Task 36 — `run_task_36`
+
+- **Inputs**: `config`, raw `panels` (`fundamental_quarter`, `macro_quarter`, `index_daily`, `index_membership`, `classifications`), `output_dir`; keyword `registry` (task number → `run_task_N`), `seeds`, optional `services`, `skip`, `data_mode` (`licensed` or `synthetic`), `resume`.
+- **Process**: validates inputs before anything runs; builds the 35-stage table, where every input is sourced from an external input, a producing stage or the driver; refuses a plan with a missing source or a cycle; executes in dependency order, with Tasks 1–4 and 22–35 called through adapters, Tasks 5–12, 15, 20 and 21 read from Task 22's statuses, and Tasks 13, 14 and 16–19 inside Task 15. It checkpoints by input digest, propagates root causes to all transitive consumers, computes the nine gate rows for Task 35, and writes the manifest and failure ledger.
+- **Outputs**: `status`, `records`, `outputs`, `order`, `manifest_path`, `failure_ledger_path`, `run_id`, `data_mode`, `skipped`, `loader_mode`, `seeds`. The study cell `run_study_execution` wraps it: it loads the licensed panels or generates the declared synthetic study, resolves services and seeds (licensed: 11, 23, 41, 67, 101; synthetic: 11), collects provenance, calls the driver once, and publishes the study status.
+- **Transformation**: raw panels and a configuration become the complete, auditable study (discovery, baselines, evaluation, inference, ablations, sensitivity and packaging) with a single final verdict.
+- **Research role**: the whole pipeline from Section 3's framework to the released artefacts; it delegates Equations (1)–(6) and Algorithms 1–2 to their stages and estimates nothing itself.
+- **Equations**: the driver's status rule, with $\mathcal{D}$ the declared skips and $\mathcal{N}$ the stages not completed:
+
+$$
+\mathrm{status}=\begin{cases}\mathtt{completed},&\mathcal{N}=\varnothing\\ \mathtt{completed\_with\_declared\_skips},&\varnothing\ne\mathcal{N}\subseteq\mathcal{D}\\ \mathtt{not\_completed}\ (\text{raises }\mathtt{Task36NotCompletedError}),&\text{otherwise.}\end{cases}
+$$
+
+- **Implementation distinction**: `study_complete` is published only for a completed run on licensed data. A completed synthetic run with declared stand-ins for the served model, encoder and tokenizer reports `pipeline_verified_on_synthetic_data`, which verifies the machinery, not the manuscript's figures. A licensed run without the operator's services halts rather than borrowing a stand-in.
