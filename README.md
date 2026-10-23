@@ -98,7 +98,7 @@ The design targets domains in which no single theory is correct, conditions shif
 
 ## Introduction
 
-This project implements the methodology of Koa, Orestav, Wu, Wooldridge and Huang (2026). Its core is the Jupyter notebook `multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb`, the project's official notebook. Its code defines **740 top-level callables: 661 functions, 32 classes and 47 methods**, counted with Python's `ast` module over top-level definitions and the methods of top-level classes (nested helper functions are not counted). The code is organised as a *Supporting Definitions* section followed by **36 tasks, Tasks 1–36**, each in its own cell. Task 36 holds the study interface, `run_task_36`.
+This project implements the methodology of Koa, Orestav, Wu, Wooldridge and Huang (2026). Its core is the Jupyter notebook `multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb`, the project's official notebook. Its code defines **742 top-level callables: 663 functions, 32 classes and 47 methods**, counted with Python's `ast` module over top-level definitions and the methods of top-level classes (nested helper functions are not counted). The code is organised as a *Supporting Definitions* section followed by **36 tasks, Tasks 1–36**, each in its own cell. Task 36 holds the study interface, `run_task_36`.
 
 **The problem.** Symbolic regression (SR) has worked well in the natural sciences, where the goal is to recover one stable governing equation. The paper argues that financial valuation is a structurally different class of symbolic discovery problem, with three defining characteristics:
 
@@ -111,7 +111,7 @@ The paper notes that these challenges compound across the stages of the agent se
 **The answer.** MUFASA addresses each challenge with one architectural element:
 
 - **Disentangled symbolic discovery:** five specialist LLM agents, each constrained to one valuation philosophy, propose closed-form expressions, retrieve variables through a semantic tool, execute candidates as code, and have their coefficients fitted by differential evolution.
-- **Hierarchical-level reasoning:** a meta-coordinator conditions on the context $C(i,t)=(s(i),r(t))$, sector and bull/bear regime, and produces SLSQP-fitted weights over the specialist forecasts.
+- **Hierarchical-level reasoning:** a meta-coordinator, run per market, conditions on the context $C(i,t)=(s(i),r(t))$, sector and bull/bear regime, selects a subset of the specialists and proposes their starting weights, from which SLSQP fits the weights of the specialist forecasts over that subset.
 - **Statistical performance memory:** each agent stores every hypothesis with a seven-family statistical summary and distils it into natural-language learnings that steer the next generation.
 
 **Headline results reported in the paper** (Table 2, MAPE on the held-out 20 % of quarters; lower is better):
@@ -145,8 +145,9 @@ The paper notes that these challenges compound across the stages of the agent se
 > - The notebook is **define-only** up to the cell *Task 36: Top-Level Pipeline Orchestrator*. Its two closing cells, *Study Assembly* and *Study Execution*, start a separate study run through `run_study_execution()`; do not execute them when following the usage example.
 > - The **only executed runs** are synthetic smoke runs: one seed (11), synthetic panels, and budgets shrunk by `make_smoke_configuration`. They returned `completed` for all 35 stages, which gives the published status `pipeline_verified_on_synthetic_data`. This verifies the wiring; it is **not** a study result.
 > - **No licensed run has been executed**, and no number in this README was produced by this code. Every reported number comes from the manuscript.
-> - A licensed run needs the operator's served model (`Qwen/Qwen3-4B-Thinking`), a sentence encoder, a tokenizer and the baseline clients. `config.yaml` stores `pipeline.serving.model_revision` as forty zeros, a placeholder that **must be pinned** to a 40-hex commit before such a run. The Yahoo Finance symbol for FTSE Asia Pacific ex-Japan is not published and must be verified.
-> - The paper leaves many settings unpublished. They are recorded as `[UNSPECIFIED IN MANUSCRIPT]` reproduction decisions in `market_structure.gap_register` (18 entries). Examples are the iteration budgets, the differential-evolution settings, the seeds, the retrieval depth, the memory cap and the equity risk premium.
+> - A licensed run needs the operator's served model (`Qwen/Qwen3-4B-Thinking-2507`, the public checkpoint of the paper's Qwen3-4B-Thinking, declared on vLLM 0.19.1), a sentence encoder, a tokenizer and the baseline clients. `config.yaml` pins `pipeline.serving.model_revision` to the commit `768f209d9ea81521153ed38c47d515654e938aea` reported for that checkpoint on 2026-10-23; it was not re-verified from the environment that made this change, so **re-verify it** against the served checkpoint before such a run. The Yahoo Finance symbol for FTSE Asia Pacific ex-Japan is not published and must be verified.
+> - The paper leaves many settings unpublished. They are recorded as `[UNSPECIFIED IN MANUSCRIPT]` reproduction decisions in `market_structure.gap_register` (20 entries). Examples are the iteration budgets, the differential-evolution settings, the seeds, the retrieval depth, the memory cap, the equity risk premium, the EV-to-price bridge of the EV-multiple baselines and the served checkpoint.
+> - **The models are not trained or selected on one rule.** Random forest and HistGBM use scikit-learn's default squared-error loss, and the neural network minimises the mean squared error on a standardised target, while MUFASA and the symbolic baselines minimise MAPE, the evaluation metric. The baselines are selected on the validation slice, while MUFASA's incumbent expression is selected on training MAPE, as Algorithm 1 scores candidates on the training data. The paper specifies neither choice, so neither is a deviation, but both bear on how the comparison is read.
 
 ## Theoretical Background
 
@@ -203,7 +204,7 @@ $$
 \mathcal L^{\text{meta}}=\mathrm{MAPE}\big(\hat y_{i,t+1},\,y_{i,t+1}\big) \qquad (5)
 $$
 
-Here $\hat{\mathbf y}_{i,t+1}$ stacks the specialist forecasts $\hat y^{(a)}_{i,t+1}$. In the implementation, the weights lie on the simplex: SLSQP with bounds $[0,1]$ and an equality constraint $\sum_a w_a=1$. They are fitted per (market, sector, regime) cell, from the uniform start plus seeded Dirichlet starts. A cell with fewer than 200 firm-quarters escalates to its sector pool and then to the market pool.
+Here $\hat{\mathbf y}_{i,t+1}$ stacks the specialist forecasts $\hat y^{(a)}_{i,t+1}$. In the implementation the meta-coordinator (Task 20) runs once per market, as each market is its own dataset with its own index regime. For every (market, sector, regime) cell it proposes a weight vector $\tilde{\mathbf w}^{(0)}$; its subset $A^*$ is the set of specialists proposed above the simplex tolerance. Task 21 then fits the weights by SLSQP over $A^*$ only, with bounds $[0,1]$, the equality constraint $\sum_{a\in A^*}w_a=1$ and $w_a=0$ outside $A^*$, starting from $\tilde{\mathbf w}^{(0)}$ restricted to $A^*$ plus seeded Dirichlet starts. Because the MAPE objective is convex in the weights, it is the subset that lets the coordinator change a forecast. A start is accepted when its point is feasible, whether or not SLSQP reports convergence at the objective's kinks. A cell with fewer than 200 firm-quarters escalates to its sector pool and then to the market pool.
 
 **Regimes.** Regimes follow the practitioner convention in the Pagan–Sossounov tradition. A **bull** market is declared when the index has risen at least 20 % from its most recent trough, and a **bear** market when it has fallen at least 20 % from its most recent peak (`BULL_MULTIPLE = 1.20`, `BEAR_MULTIPLE = 0.80`, Task 6). The configured timeline is **causal** (`pipeline.regime_timeline: causal`): a label uses only information available at the time. An ex-post timeline is computed alongside it for the sensitivity grid.
 
@@ -246,7 +247,7 @@ The memory is distilled into learnings $\mathbf Z^{(a)}$ (and $\mathbf Z^{\text{
 The manuscript is internally inconsistent on two points, and the configuration resolves both explicitly (`study_specification.internal_conflicts`):
 
 - Algorithm 1 stores $(\tilde f,\mathcal L)$ while Table 1 stores seven families. The implementation stores the **full seven-family profile**.
-- Section 3.3 fits weights by SLSQP with subset selection, while Algorithm 2 samples them from $\pi_\phi$. The implementation provides **both**: Task 20 runs the LLM loop and Task 21 fits the SLSQP matrix.
+- Section 3.3 fits weights by SLSQP with subset selection, while Algorithm 2 samples them from $\pi_\phi$. The implementation provides **both**, combined as the reproduction task list prescribes: Task 20 runs the LLM loop per market and proposes each cell's subset and starting weights, and Task 21 fits the SLSQP matrix over that subset from that start.
 
 ### 6. Forecast Evaluation and Statistical Inference (Appendix B)
 
@@ -300,10 +301,11 @@ The diagram below illustrates the Inputs, Processes and Outputs (IPOs) of the im
   - `study_complete` requires `data_mode="licensed"`;
   - synthetic panels can at best earn `pipeline_verified_on_synthetic_data`;
   - a `not_completed` run raises `Task36NotCompletedError` with the full result attached.
-- **Point-in-time discipline.** As-originally-reported filings only, restatement auditing, the filing-date gate, survivorship-free membership intervals, a causal regime timeline, a forward-shifted target, and a per-market chronological 80/20 split with a one-quarter embargo and a 10 % validation carve-out.
+- **Point-in-time discipline.** As-originally-reported filings only, restatement auditing, the filing-date gate, survivorship-free membership intervals, a causal regime timeline, a forward-shifted target whose share basis is audited against quarter $t$ (a split-like break drops the target), and a per-market chronological 80/20 split with a one-quarter embargo and a 10 % validation carve-out.
 - **One quarter key throughout.** Every stage keys quarters on the calendar quarter (`cal_quarter`, else the calendar quarter of `fiscal_period_end`), never on fiscal-label text. Both calendar-style and vendor-style (`"FY2020Q2"`) labels complete the pipeline.
 - **Every held-out row receives a weight.** A test-window context that never occurs in training is declared to the weight registry and takes its sector pool, or the market pool. MUFASA therefore does not silently drop rows that every baseline is scored on.
 - **Like-for-like comparison.** Beside each model's own-row MAPE, Task 27 reports the MAPE on the common support, the rows every scored model covers, and Task 29 writes it as a market-by-model matrix.
+- **The meta-coordinator reaches the forecast.** Task 21 fits each cell's weights over the subset the per-market meta-coordinator selected, from its proposed weights, so the hierarchical-reasoning component has a causal path to every MUFASA forecast.
 - **Grammar-checked, sandboxed execution.** Candidates are parsed against an operator whitelist (`+ - * / ^ log exp abs < > indicator`, at most 30 operators) and executed in a sandbox with timeout, NaN-tolerance and coverage audits. Every rejection becomes a structured, machine-parseable error.
 - **Token-budgeted prompts.** Each block of a prompt has its own budget:
   - specialist prompts: *PHILOSOPHY* 1,500, *PRIOR_EQUATION* 3,000, *LEARNINGS* 8,000 and *ERROR_FEEDBACK* 3,000 tokens;
@@ -325,12 +327,12 @@ Each task below names its orchestrator and the exact title of its notebook cell.
 4. **Task 4, Data Cleansing and Quality Filtering** (`run_task_4`). The original-filing snapshot assertion, restatement discipline, structural-zero audit, free-cash-flow sign audit, denominator policy and the Gate 0 quarantine.
 5. **Task 5, Point-in-Time Panel Construction** (`run_task_5`). Fiscal-to-calendar mapping, the filing-date gate and the membership gate, combined into `eligible_for_design_matrix`.
 6. **Task 6, Context Labelling and Causal Regime Dating** (`run_task_6`). Maps sectors to the paper's 11 labels, dates the causal and ex-post ±20 % regime timelines, and builds the context key and the cell occupancy. The pre-September-2018 GICS name *Telecommunication Services* (sector code 50) maps to *Communications*, the same label as its successor *Communication Services*.
-7. **Task 7, Target Construction and Temporal Partitioning** (`run_task_7`). Applies the eligibility filter, builds the forward-shifted target, and makes the per-market 80/20 split with a one-quarter embargo and a 90/10 fit/validation carve-out, freezing every artefact by digest.
+7. **Task 7, Target Construction and Temporal Partitioning** (`run_task_7`). Applies the eligibility filter, builds the forward-shifted target, audits its share basis against quarter $t$ (`audit_share_basis_task_7`: a split-like share-count break between $t$ and $t+1$ drops the target and is written to `share_basis_audit_task_7.csv`), and makes the per-market 80/20 split with a one-quarter embargo and a 90/10 fit/validation carve-out, freezing every artefact by digest.
 8. **Task 8, Codebook and Per-Share Variable Construction** (`run_task_8`). Builds the per-share quotients, tangible book, equity and enterprise multiples and the denominator floor under one admissibility helper, plus the versioned codebook and symbol registry.
 9. **Task 9, Cross-Sectional and Sector Aggregates** (`run_task_9`). Market and sector medians, means and dispersion under frozen winsorisation bounds. A sector median requires at least 5 firms per sector-quarter, a market aggregate at least 50 firms per quarter.
 10. **Task 10, Lagged and Engineered Features** (`run_task_10`). Lags 1, 4 and 8 of EPS, TTM revenue, EBITDA, EBIT and shares; year-on-year growth pairs; and engineered flags.
 11. **Task 11, Semantic Retrieval Index** (`run_task_11`). An exact in-memory cosine index over the codebook (default encoder `all-MiniLM-L6-v2`, depth 20), with pre-flight at depths 5, 10 and 20 and a bound retrieval callable for Task 15.
-12. **Task 12, LLM Serving Infrastructure and Role Configuration** (`run_task_12`). One server for the seven role keys (five specialists, the meta-coordinator and the distiller), a context-window assertion, smoke requests per sampling profile, out-of-memory back-off and a wall-clock budget.
+12. **Task 12, LLM Serving Infrastructure and Role Configuration** (`run_task_12`). One server for the seven role keys (five specialists, the meta-coordinator and the distiller), a context-window assertion, smoke requests per sampling profile, out-of-memory back-off and a wall-clock budget. Every role reply is split at its last `</think>`, so only a thinking model's answer reaches the parsers.
 13. **Task 13, Prompt Assembly and Token Budgeting** (`run_task_13`). Specialist, meta and distillation prompts under per-block budgets, with prompt-hash and token logs.
 14. **Task 14, Grammar Parser and Error Encoding** (`run_task_14`). The candidate grammar, the parser, and the reason taxonomy with suggested actions.
 15. **Task 15, Philosopher Agent Training Loop** (`run_task_15`). Algorithm 1 for the five perspectives, with trajectories, solver records, expressions, losses and profiles.
@@ -338,12 +340,12 @@ Each task below names its orchestrator and the exact title of its notebook cell.
 17. **Task 17, Code Execution Sandbox** (`run_task_17`). Compiles, executes and audits each candidate against the design matrix, returning aligned predictions and a defined-row mask.
 18. **Task 18, Statistical Memory and Seven-Family Profiling** (`run_task_18`). The seven-family profile, a memory store keyed by canonical structure hash with a 500-record cap, and a JSONL ledger.
 19. **Task 19, Natural-Language Memory Distillation** (`run_task_19`). Eight-block distillation at temperature 0.3, with number grounding, rejection of causal phrases, resampling and memory-regime support.
-20. **Task 20, Meta-Coordinator Training** (`run_task_20`). Algorithm 2 per context cell, with sector-pool and market-pool escalation and the meta trajectory.
-21. **Task 21, SLSQP Weight Fitting** (`run_task_21`). Simplex weights per (market, sector, regime) cell from multiple starts. The frozen matrix is applied to held-out rows without refitting. A held-out context with no training rows is declared to the registry and takes its sector pool, or the market pool; such cells are listed in `test_only_cells`.
-22. **Task 22, Master Orchestrator Function** (`run_task_22`). Runs stages 5–12, 15, 20 and 21 once per seed with checkpoints and returns `MufasaRunArtifacts`.
+20. **Task 20, Meta-Coordinator Training** (`run_task_20`). Algorithm 2 per context cell, run once per market by Task 22, with sector-pool and market-pool escalation and the meta trajectory. Every cell's and unit's proposal, the subset and starting weights Task 21 fits from, is written to `per_cell_proposals.json`.
+21. **Task 21, SLSQP Weight Fitting** (`run_task_21`). Simplex weights per (market, sector, regime) cell over the meta-coordinator's subset, from its proposal and seeded starts; a feasible start is accepted whether or not SLSQP reports convergence (`non_converged_units` lists such units). The frozen matrix is applied to held-out rows without refitting. A held-out context with no training rows is declared to the registry and takes its sector pool, or the market pool; such cells are listed in `test_only_cells`.
+22. **Task 22, Master Orchestrator Function** (`run_task_22`). Runs stages 5–12, 15, 20 (once per market) and 21 once per seed with checkpoints, passes the coordinator's proposals to Task 21, and returns `MufasaRunArtifacts`.
 23. **Task 23, ML Baselines and Feature Policy Equalisation** (`run_task_23`). Random forest (500 trees), HistGBM (200 iterations) and a neural net (64 hidden units, 200 epochs), all under one frozen preprocessing policy.
 24. **Task 24, Symbolic Regression Baselines** (`run_task_24`). PySR (27 populations, 30 iterations, maximum size 30), FunSearch and LLM-SR, selected on validation and evaluated once on test.
-25. **Task 25, Financial LLM and Classical Valuation Baselines** (`run_task_25`). Fin-R1 and Fino1; sector-median P/E, EV/EBIT, EV/EBITDA and P/B; and single-stage Gordon DDM, FCFE and FCFF with an equity risk premium of 0.05.
+25. **Task 25, Financial LLM and Classical Valuation Baselines** (`run_task_25`). Fin-R1 and Fino1; sector-median P/E, EV/EBIT, EV/EBITDA and P/B, the two enterprise-value multiples bridged to the share price by net debt per share; and single-stage Gordon DDM, FCFE and FCFF with an equity risk premium of 0.05.
 26. **Task 26, Agentic and Naive Price-Level Baselines** (`run_task_26`). FinCon and FinVision through declared adapters, plus persistence, cross-sectional-mean and trend benchmarks.
 27. **Task 27, Evaluation Metrics and Aggregation** (`run_task_27`). MAPE in its three variants, the common-support MAPE (`common_pooled`, `n_common`) on the rows every scored model covers, secondary metrics, row losses and reliability profiles.
 28. **Task 28, Diebold-Mariano Statistical Inference** (`run_task_28`). Newey–West with HLN, the two-way clustered view and Benjamini–Hochberg control.
@@ -384,12 +386,12 @@ Callable counts for each section (top-level definitions only; methods are those 
 | Task 4 | 20 | 0 | 0 | `run_task_4` |
 | Task 5 | 15 | 1 | 1 | `run_task_5` |
 | Task 6 | 12 | 0 | 0 | `run_task_6` |
-| Task 7 | 25 | 0 | 0 | `run_task_7` |
+| Task 7 | 26 | 0 | 0 | `run_task_7` |
 | Task 8 | 16 | 0 | 0 | `run_task_8` |
 | Task 9 | 13 | 0 | 0 | `run_task_9` |
 | Task 10 | 9 | 0 | 0 | `run_task_10` |
 | Task 11 | 7 | 0 | 0 | `run_task_11` |
-| Task 12 | 16 | 2 | 0 | `run_task_12` |
+| Task 12 | 17 | 2 | 0 | `run_task_12` |
 | Task 13 | 17 | 1 | 0 | `run_task_13` |
 | Task 14 | 16 | 3 | 15 | `run_task_14` |
 | Task 15 | 33 | 1 | 1 | `run_task_15` |
@@ -414,7 +416,7 @@ Callable counts for each section (top-level definitions only; methods are those 
 | Task 34 | 16 | 0 | 0 | `run_task_34` |
 | Task 35 | 16 | 3 | 0 | `run_task_35` |
 | Task 36 | 71 | 2 | 2 | `run_task_36` |
-| **Total** | **661** | **32** | **47** | **740 callables** |
+| **Total** | **663** | **32** | **47** | **742 callables** |
 
 **Shared namespace.** Executing the code cells top to bottom defines every callable in one namespace. `run_task_36` receives the stage callables through its `registry` argument, `{1: run_task_1, …, 35: run_task_35}`, so the notebook must be run **in full and in order** before use. No module is loaded from disk.
 
@@ -478,11 +480,11 @@ Outputs default to `MUFASA_STUDY_OUTPUT_DIR`, or `~/mufasa_study` when it is uns
 - **Core libraries** imported by the notebook: `numpy`, `pandas`, `scipy` (`scipy.stats`, `scipy.optimize.differential_evolution`, `scipy.optimize.minimize`), `scikit-learn` (`RandomForestRegressor`, `HistGradientBoostingRegressor`) and `matplotlib`.
 - **Optional at import, required for a licensed run:**
   - `sentence-transformers`: its import is guarded; without it, `embed_fn` must be injected;
-  - `vllm`: imported lazily by Task 12; an absent library halts serving with `VllmServingError`;
+  - `vllm`: imported lazily by Task 12; an absent library halts serving with `VllmServingError`. The declaration names vLLM 0.19.1, the newest release with Qwen3 support, `requires_python >=3.10,<3.14` and a CUDA 12.x build (it pins torch 2.10.0, built on the CUDA 12.8 runtime); it was not installed or run here;
   - `pysr`: imported lazily by Task 24; when absent, the PySR baseline is registered `unavailable` and nothing is substituted.
 - **Provenance only:** `statsmodels`, which the notebook never imports; Task 1 records its installed version.
 - **For the usage example only:** `PyYAML`, which reads `config.yaml`.
-- **Serving hardware for a licensed run:** the paper serves Qwen3-4B-Thinking with vLLM on NVIDIA RTX A5000 GPUs, at about 10 minutes per agent on each processing unit. It uses temperature 0.7 for the agents and 0.3 for the memory components, a 32,768-token context and a 16,384-token generation cap.
+- **Serving hardware for a licensed run:** the paper serves Qwen3-4B-Thinking (here `Qwen/Qwen3-4B-Thinking-2507`) with vLLM on NVIDIA RTX A5000 GPUs, at about 10 minutes per agent on each processing unit. It uses temperature 0.7 for the agents and 0.3 for the memory components, a 32,768-token context and a 16,384-token generation cap.
 - **Data access:** licensed Bloomberg fundamentals and FactSet macroeconomic series; Yahoo Finance index prices; index-membership histories with entry and exit dates; and GICS classification histories.
 
 ## Installation
@@ -503,11 +505,11 @@ Outputs default to `MUFASA_STUDY_OUTPUT_DIR`, or `~/mufasa_study` when it is uns
    ```sh
    python -m pip install -r requirements.txt
    ```
-   This installs the verified versions of the core stack, `statsmodels`, `PyYAML` and the Jupyter runtime, which is everything a synthetic run and the usage example need. A licensed run with real services also needs the optional packages, which `requirements.txt` lists commented out and unpinned because their versions were not verified:
+   This installs the verified versions of the core stack, `statsmodels`, `PyYAML` and the Jupyter runtime, which is everything a synthetic run and the usage example need. A licensed run with real services also needs the optional packages, which `requirements.txt` lists commented out because they were not installed or verified here; it declares `vllm==0.19.1` and leaves the other two unpinned:
    ```sh
-   pip install sentence-transformers pysr vllm
+   pip install sentence-transformers pysr vllm==0.19.1
    ```
-   vLLM publishes Linux/CUDA builds only and must be resolved against the served model, and PySR installs a Julia back-end on first use.
+   vLLM publishes Linux/CUDA builds only, and PySR installs a Julia back-end on first use.
 
 4. **Keep `config.yaml` in the working directory**, which is the notebook's own folder. `study_config.json` holds the same mapping and is the file `run_study_execution` loads.
 
@@ -559,7 +561,7 @@ The walkthrough below is the complete usage example from `usage_example.md`, rep
 3. It composes every argument of `run_task_36`.
 4. It calls the interface, reads back the three institutional assets and compares every model on the rows all of them score.
 
-The example was executed against the repository's notebook, `multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb`. Its **Corrections made to the notebook** section lists the six defects fixed while building it, and its **Verification record** states exactly what ran.
+The example was executed against the repository's notebook, `multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb`. Its **Corrections made to the notebook** section lists the twelve defects fixed while building it and after an independent assessment, each with its targeted check under `verification/`, and its **Verification record** states exactly what ran.
 
 ## **Usage Example**
 
@@ -2576,7 +2578,7 @@ pipeline.differential_evolution   {'population_multiplier': 15, 'generations_max
                                    'parameter_bounds': [-1000000.0, 1000000.0],
                                    'early_stop_patience': 20, 'early_stop_tolerance': 1e-06,
                                    'admissible_share_floor': 0.5}
-      pipeline.serving.model_id   Qwen/Qwen3-4B-Thinking
+      pipeline.serving.model_id   Qwen/Qwen3-4B-Thinking-2507
                evaluation.alpha   0.05
     reproducibility.seed_values   [11, 23, 41, 67, 101]
 ```
@@ -2914,41 +2916,41 @@ Output of the executed smoke cell (seed 11, synthetic panels, smoke budgets). Th
      classifications: (127, 4)
 completed -> pipeline_verified_on_synthetic_data
  task    callable                    role    status  n_calls    seconds                                 reason
-    1  run_task_1                  driver completed        1   0.280175                               executed
-    2  run_task_2                  driver completed        1   1.477954                               executed
-    3  run_task_3                  driver completed        1   1.446512                               executed
-    4  run_task_4                  driver completed        1   2.266095                               executed
-   22 run_task_22                  driver completed        1  35.853263                               executed
-    5  run_task_5          within_task_22 completed        0   0.000091                executed inside Task 22
-    6  run_task_6          within_task_22 completed        0   0.000031                executed inside Task 22
-    7  run_task_7          within_task_22 completed        0   0.000027                executed inside Task 22
-    8  run_task_8          within_task_22 completed        0   0.000021                executed inside Task 22
-    9  run_task_9          within_task_22 completed        0   0.000023                executed inside Task 22
-   10 run_task_10          within_task_22 completed        0   0.000020                executed inside Task 22
-   11 run_task_11          within_task_22 completed        0   0.000021                executed inside Task 22
-   12 run_task_12          within_task_22 completed        0   0.000021                executed inside Task 22
-   15 run_task_15          within_task_22 completed        0   0.000058                executed inside Task 22
-   13 run_task_13 collaborator_of_task_15 completed        0   0.000011 called inside Task 15's discovery loop
-   14 run_task_14 collaborator_of_task_15 completed        0   0.000021 called inside Task 15's discovery loop
+    1  run_task_1                  driver completed        1   0.016169                               executed
+    2  run_task_2                  driver completed        1   0.927685                               executed
+    3  run_task_3                  driver completed        1   1.235434                               executed
+    4  run_task_4                  driver completed        1   1.969206                               executed
+   22 run_task_22                  driver completed        1  23.562050                               executed
+    5  run_task_5          within_task_22 completed        0   0.000102                executed inside Task 22
+    6  run_task_6          within_task_22 completed        0   0.000034                executed inside Task 22
+    7  run_task_7          within_task_22 completed        0   0.000020                executed inside Task 22
+    8  run_task_8          within_task_22 completed        0   0.000016                executed inside Task 22
+    9  run_task_9          within_task_22 completed        0   0.000015                executed inside Task 22
+   10 run_task_10          within_task_22 completed        0   0.000014                executed inside Task 22
+   11 run_task_11          within_task_22 completed        0   0.000012                executed inside Task 22
+   12 run_task_12          within_task_22 completed        0   0.000013                executed inside Task 22
+   15 run_task_15          within_task_22 completed        0   0.000045                executed inside Task 22
+   13 run_task_13 collaborator_of_task_15 completed        0   0.000014 called inside Task 15's discovery loop
+   14 run_task_14 collaborator_of_task_15 completed        0   0.000008 called inside Task 15's discovery loop
    16 run_task_16 collaborator_of_task_15 completed        0   0.000006 called inside Task 15's discovery loop
-   17 run_task_17 collaborator_of_task_15 completed        0   0.000005 called inside Task 15's discovery loop
+   17 run_task_17 collaborator_of_task_15 completed        0   0.000007 called inside Task 15's discovery loop
    18 run_task_18 collaborator_of_task_15 completed        0   0.000005 called inside Task 15's discovery loop
    19 run_task_19 collaborator_of_task_15 completed        0   0.000005 called inside Task 15's discovery loop
-   20 run_task_20          within_task_22 completed        0   0.000024                executed inside Task 22
-   21 run_task_21          within_task_22 completed        0   0.000022                executed inside Task 22
-   23 run_task_23                  driver completed        1   7.493838                               executed
-   24 run_task_24                  driver completed        5   5.757943                               executed
-   25 run_task_25                  driver completed        1   4.822049                               executed
-   26 run_task_26                  driver completed        1   2.440786                               executed
-   27 run_task_27                  driver completed        1   5.352807                               executed
-   28 run_task_28                  driver completed        1  10.705338                               executed
-   29 run_task_29                  driver completed        1   4.598364                               executed
-   30 run_task_30                  driver completed        1 185.789695                               executed
-   31 run_task_31                  driver completed        1 160.598019                               executed
-   32 run_task_32                  driver completed        1  97.255489                               executed
-   33 run_task_33                  driver completed        1 248.503123                               executed
-   34 run_task_34                  driver completed        1 530.330185                               executed
-   35 run_task_35                  driver completed        1   3.098169                               executed
+   20 run_task_20          within_task_22 completed        0   0.000025                executed inside Task 22
+   21 run_task_21          within_task_22 completed        0   0.000023                executed inside Task 22
+   23 run_task_23                  driver completed        1 510.062009                               executed
+   24 run_task_24                  driver completed        5   3.758623                               executed
+   25 run_task_25                  driver completed        1   2.872834                               executed
+   26 run_task_26                  driver completed        1   1.749965                               executed
+   27 run_task_27                  driver completed        1   3.241105                               executed
+   28 run_task_28                  driver completed        1   5.996432                               executed
+   29 run_task_29                  driver completed        1   2.020191                               executed
+   30 run_task_30                  driver completed        1  98.418560                               executed
+   31 run_task_31                  driver completed        1  84.556907                               executed
+   32 run_task_32                  driver completed        1  44.141853                               executed
+   33 run_task_33                  driver completed        1 134.754778                               executed
+   34 run_task_34                  driver completed        1 208.814956                               executed
+   35 run_task_35                  driver completed        1   1.947863                               executed
 ```
 
 The diagnostics are expected and do not change the status:
@@ -2962,7 +2964,7 @@ The fitted equations of the five perspective agents in the same run, printed in 
 
 ```text
 expression asset : (0.0010193979256846555 * Revenue_ps)
-expression cashflow : ((-0.0032221505610975027) * NI_ps)
+expression cashflow : ((-0.0032221505610975022) * NI_ps)
 expression earnings : ((-0.0032225940300549157) * NI_ps)
 expression growth : ((-9.601220742308452e-07) * (Revenue_ps * ((-1075.4418052499834) + (SALES_REV_TURN_YOY / (-2.8617740056700844)))))
 expression quality : (0.7983762484376477 * (NI_ps * P_FCF))
@@ -2994,38 +2996,39 @@ print(smoke_result["outputs"][29]["paths"][first_seed]["table_2_common_support"]
 The first three `print` calls return the full expression, weight-matrix and reliability-profile objects (the weight matrix of this run has 44 rows, one per market × sector × regime cell, and 18 columns). They are long, so only the output of the last three calls is reproduced:
 
 ```text
-C:\Users\techuf02l\mufasa_runs\smoke\pipeline_manifest_task_36.json None
+/root/mufasa_runs/final/pipeline_manifest_task_36.json None
                      model    pooled  n_scored  common_pooled  n_common
-                    Fin-R1 38.023717      1051       3.090779       721
-                     Fino1 38.023717      1051       3.090779       721
-                    MUFASA  0.399505      1023       0.446701       721
-                 ddm_price  2.305945       773       2.412250       721
-          ev_ebit_baseline 84.009721      1021       2.864278       721
-        ev_ebitda_baseline 62.712744      1021       2.865142       721
-                fcfe_price  8.080611       773       8.482008       721
-                fcff_price  9.717675       773      10.229526       721
-                 funsearch  0.626416      1033       0.722240       721
-                   histgbm 23.486857      1051       6.249318       721
-                    llm_sr  0.328420      1033       0.365558       721
-naive_cross_sectional_mean 79.468930      1051      54.056229       721
-         naive_persistence  0.146033      1051       0.150735       721
-               naive_trend  0.359650      1036       0.199775       721
-                        nn 45.802176      1051      26.696895       721
-               pb_baseline 87.011558      1021       0.743272       721
-               pe_baseline 67.634203      1021       0.180284       721
-                        rf 13.876682      1051       1.132200       721
-C:\Users\techuf02l\mufasa_runs\smoke\task_29\seed_11\table_2_common_support.csv
+                    Fin-R1 38.023717      1051       1.933855       586
+                     Fino1 38.023717      1051       1.933855       586
+                    MUFASA  0.399268      1024       0.419185       586
+                 ddm_price  2.305945       773       2.829224       586
+          ev_ebit_baseline  0.230268       876       0.244627       586
+        ev_ebitda_baseline  0.230117       876       0.244359       586
+                fcfe_price  8.080611       773       9.666540       586
+                fcff_price  9.717675       773       9.151488       586
+                 funsearch  0.626416      1033       0.429721       586
+                   histgbm 23.486857      1051       4.352569       586
+                    llm_sr  0.328420      1033       0.292481       586
+naive_cross_sectional_mean 79.468930      1051      36.373641       586
+         naive_persistence  0.146033      1051       0.135492       586
+               naive_trend  0.359650      1036       0.193553       586
+                        nn 45.802176      1051      17.227522       586
+               pb_baseline 87.011558      1021       0.332344       586
+               pe_baseline 67.634203      1021       0.121042       586
+                        rf 13.866060      1051       0.887874       586
+/root/mufasa_runs/final/task_29/seed_11/table_2_common_support.csv
 ```
 
 How to read the table:
 
-- **`n_common` is 721 for every model.** That is the number of (quarter, firm) rows, summed over the five markets, that all 18 scored models cover. `pysr` is absent because its back-end is not installed in this environment (Task 24 records it as *unavailable*), and `fincon` and `finvision` are absent for the reason given above.
-- **`pooled` and `common_pooled` can differ by an order of magnitude.** Fin-R1 and Fino1 fall from 38.0 on their own 1,051 rows to 3.09 on the common rows, and `pe_baseline` from 67.6 to 0.18. Their largest errors sit on rows that some other model does not score. A ranking of models by `pooled` is therefore partly a ranking of coverage, which is why the common-support column is reported beside it.
-- **MUFASA scores 1,023 of 1,051 rows** (coverage 0.973), so its `pooled` figure is also an own-row figure. On the common rows it is 0.447.
+- **`n_common` is 586 for every model.** That is the number of (quarter, firm) rows, summed over the five markets, that all 18 scored models cover. `pysr` is absent because its back-end is not installed in this environment (Task 24 records it as *unavailable*), and `fincon` and `finvision` are absent for the reason given above.
+- **`pooled` and `common_pooled` can differ by an order of magnitude.** Fin-R1 and Fino1 fall from 38.0 on their own 1,051 rows to 1.93 on the common rows, and `pe_baseline` from 67.6 to 0.12. Their largest errors sit on rows that some other model does not score. A ranking of models by `pooled` is therefore partly a ranking of coverage, which is why the common-support column is reported beside it.
+- **The EV baselines score 876 rows.** Correction 11 bridges their enterprise value per share to the price by net debt per share. Where net debt per share reaches the enterprise value per share the implied price is not positive, so it is set missing and counted, never clipped: 753 of 5,343 panel rows for EV/EBIT, 581 of them Financials, whose debt is operating funding rather than financing and for which EV multiples are not the practitioner's tool. That is why the common support is 586 rows here rather than the 721 of the run before that correction.
+- **MUFASA scores 1,024 of 1,051 rows** (coverage 0.974), so its `pooled` figure is also an own-row figure. On the common rows it is 0.419.
 
 ### **Corrections made to the notebook**
 
-Building and auditing this example exposed six defects. Each one is fixed in the notebook, and the copy taken before each fix is kept in a dated `backup_*` folder.
+Building and auditing this example exposed six defects, and an independent assessment of the notebook against the paper exposed six more. Each one is fixed in the notebook. The copy taken before each of the first six fixes is kept in a dated `backup_*` folder; the last six are separate commits on top of the notebook of commit `9b184f7`, so `git` holds every pre-fix state.
 
 **Quarter keys (2026-10-23; pre-fix notebook in `backup_20261023_quarter_key_fix/`).** With vendor fiscal labels such as `"FY2020Q2"`, June filers or a fiscal-year change, each of the following stopped the pipeline. The fixes adopt one quarter key throughout: the **calendar quarter**. That is `cal_quarter` when it parses, and otherwise the calendar quarter that contains `fiscal_period_end`. A fiscal label is never used as a key, because issuers with different fiscal-year ends share one label.
 
@@ -3042,26 +3045,30 @@ Building and auditing this example exposed six defects. Each one is fixed in the
     - The three original variants, the headline `pooled` and `table_2.csv` are unchanged. The Diebold–Mariano tests of Task 28 already used jointly covered rows only.
 6. **Task 6, the pre-2018 GICS sector name (`build_sector_mapping_task_6`).** On 2018-09-28 GICS renamed Telecommunication Services (sector code 50) to Communication Services under the same code. A point-in-time classification history therefore carries the old name for earlier vintages. That name was outside the eleven paper labels, so Task 6 halted. It now maps to *Communications*, the same label as its successor, and the same mapping is recorded under `gics_to_paper_mapping` in `config.yaml` and `study_config.json`. Firms that moved into the sector from Information Technology or Consumer Discretionary in 2018 keep their earlier sector for earlier quarters, as their as-of vintages state.
 
+**Assessed defects (2026-10-23; pre-fix notebook at commit `9b184f7`).** Each correction below has its own targeted check under `verification/`, which must print `CHECK OK`.
+
+7. **Tasks 20 and 21, the weight fit's halt (`fit_perspective_weights_task_21`, `fit_weights_slsqp_task_20`).** A start was accepted only when SLSQP reported success *and* its point was feasible. SLSQP reports a start that stops at a kink of the non-smooth MAPE objective ("Positive directional derivative for linesearch") as unsuccessful although its point is feasible, so a cell whose starts all stopped that way halted the whole run, with a message that called a sub-tolerance violation infeasible. A start is now a candidate when its objective is finite and its point is feasible; the lowest objective wins and a converged start is preferred on a tie. Each start records its convergence flag and solver message, each fit reports `n_converged`, `chosen_converged` and `premature_termination`, Task 21 lists such units in `non_converged_units`, and the halt message counts the true causes. Check: `check_task21_solver.py` (60 seeded difficult cells: 2 halted before the fix on this platform, 0 after).
+8. **Tasks 20 → 21, the meta-coordinator's subset and start (`run_task_20`, `_stage_task_20`, `_stage_task_21`, `run_task_21`, `fit_perspective_weights_task_21`).** The specification has the coordinator select a subset $A^*$ of the agents and propose starting weights $\tilde{\mathbf w}^{(0)}$, and SLSQP fit over $A^*$ from $\tilde{\mathbf w}^{(0)}$ (`slsqp_weight_optimiser.initial_point_source: "meta_LLM_proposal"`). Task 21 ignored the coordinator, so its output reached no forecast. Task 20 now publishes every unit's proposal (`per_cell_proposals.json`), Task 22 passes it to Task 21, and Task 21 fits each unit over the proposal's subset (weights proposed above `SIMPLEX_TOLERANCE`), starting from the renormalised proposal; outside the subset the weights are exactly zero. A unit without a proposal is fitted as before. Because MAPE is convex in the weights, the subset is what lets the coordinator change a forecast. Check: `check_task21_coordinator_subset.py`.
+9. **Task 22, the meta-coordinator per market (`_stage_task_20`).** Task 20 ran once on every market's predictions, so its contexts were (sector, regime) pooled across markets, whereas the paper's regime is each market's own and each market has its own released weights. The coordinator now runs once per market under `task_20/<market>/`, with the seed `cell_seed_task_20(seed, market)` and its own meta-memory, and its weights, proposals and learnings are labelled `market::…`. A unit that escalates to a pool (too few complete rows) carries the proposal of the pool it resolved to. Check: `check_task20_per_market.py`.
+10. **Task 7, the forward target's share basis (`audit_share_basis_task_7`, `build_forward_target_task_7`, `run_task_7`).** The target $y_{i,t+1}$ is the next quarter's price, while every per-share feature divides by the quarter-$t$ share count. In a contemporaneous extract a split between $t$ and $t+1$ puts the target on the new basis, and each row still reconciles its own market capitalisation, so nothing caught it. Two rows whose `px_split_adjustment_reference_date` values are present and equal share one basis; otherwise a share-count change of at least 1.5× with the market-capitalisation ratio inside [0.5, 2] is a break, and its target is dropped (policy `drop`; `adjust` multiplies it by the share ratio). The flagged pairs are written to `share_basis_audit_task_7.csv`, and the constants are registered as `[UNSPECIFIED IN MANUSCRIPT]` decisions. The synthetic panels carry one snapshot reference date, so no pair is flagged there. Check: `check_task7_share_basis.py`.
+11. **Task 25, the EV-multiple baselines (`sector_median_baselines_task_25`, `SECTOR_MEDIAN_PAIRS`).** `EBIT_ps × SECTOR_MEDIAN_EV_EBIT` (and EBITDA likewise) is enterprise value per share, a whole-firm claim, yet it was scored against the share price. Net debt per share, `(bs_total_debt − bs_cash_and_equivalents) / bs_shares_outstanding` converted by the frozen reporting-to-trading rate, now bridges it to the price, as the FCFF baseline already nets debt less cash. A missing bridge input leaves the price missing, and a non-positive implied price is set missing and counted. `study_specification.baselines.classical_valuation` is revised accordingly and the decision is registered in `market_structure.gap_register`. This correction changes the `ev_ebit_baseline` and `ev_ebitda_baseline` figures of the smoke run above. Check: `check_task25_ev_bridge.py`.
+12. **The serving declaration and Task 12's reply text (`STUDY_ENVIRONMENT_DECLARATION`, `split_reasoning_task_12`, `make_role_callable_task_12`).** The declaration named vLLM 0.6.6, which predates vLLM's Qwen3 support, and the model `Qwen/Qwen3-4B-Thinking`, which is not a public Hugging Face repository. It now names vLLM 0.19.1 (the newest release with Qwen3 support, Python 3.11 and a CUDA 12.x build) and `Qwen/Qwen3-4B-Thinking-2507`, and `pipeline.serving` pins that checkpoint's commit as reported on 2026-10-23, to be re-verified before a licensed run. A thinking model writes its reasoning before `</think>`; every role reply is now split at the last `</think>`, only the answer is passed on, and the raw text and the reasoning's length stay in the reply record. Check: `check_reasoning_strip.py`.
+
 A separate configuration correction was made in `config.yaml` and `study_config.json`: Task 23 rejects an `early_stopping` key under `baselines.ml.histgbm`, so that key was removed.
+
+**Caveat: the models are not trained or selected on one rule.** Random forest and HistGBM use scikit-learn's default squared-error loss, and the neural network minimises the mean squared error on a standardised target, while MUFASA and the symbolic baselines minimise MAPE, the evaluation metric. The baselines are selected on the validation slice, while MUFASA's incumbent expression is selected on training MAPE, as Algorithm 1 scores candidates on the training data. The paper specifies neither choice, so neither is a deviation, but both bear on how the comparison is read.
 
 ### **Verification record**
 
-This example was executed on 2026-10-23 on Windows 11 with Python 3.13.9, NumPy 2.3.5, pandas 2.3.3, SciPy 1.16.3, scikit-learn 1.7.2, statsmodels 0.14.5, matplotlib 3.10.6 and PyYAML 6.0.3. Every run below used `multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb` after all six corrections, unless it is marked otherwise.
+This example was last executed on 2026-10-23 on Linux (x86-64, glibc 2.39) with Python 3.13.16, NumPy 2.3.5, pandas 2.3.3, SciPy 1.16.3, scikit-learn 1.7.2, statsmodels 0.14.5, matplotlib 3.10.6 and PyYAML 6.0.3, installed from `requirements.txt`. Every run below used `multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb` after all twelve corrections, unless it is marked otherwise. An earlier record of the first six corrections, executed on Windows 11 with Python 3.13.9, is in this file's `git` history.
 
-- **Notebook executed as stored.** The notebook's 39 code cells, from the first cell through *Task 36: Top-Level Pipeline Orchestrator*, were executed exactly as stored. *Study Assembly* and *Study Execution*, the two cells after Task 36, were not executed.
-- **Example executed literally.** The code cells of Steps 1–4 were then executed verbatim, in order, in the same namespace. They were followed by the Step 4.2 smoke cell and the inspection cell. No argument was overridden from outside, and every output shown above is copied from that run.
-- **Formatting.** The example cells, concatenated in order, pass `flake8 --max-line-length=99` apart from two kinds of finding. One is undefined names that the notebook defines. The other is warnings created by joining separate cells into one file.
-- **Literal smoke run.** Run on seed 11 under the smoke budgets of `make_smoke_configuration`. The driver returned `completed`, and the published status is `pipeline_verified_on_synthetic_data`. All 35 stages are recorded `completed`, no failure ledger was written, and the example cells took 21.9 minutes.
-- **Independent repeats.** Two more runs used the same smoke budgets and seed 11, each in its own output directory.
-    - The first used calendar-aligned fiscal labels. It completed all 35 stages in 19.0 minutes with the same status.
-    - The second set `FISCAL_LABEL_STYLE = "vendor"`, which writes `"FY…"` fiscal labels and adds June filers and a fiscal-year change. This is the case that halted before the quarter-key corrections. It completed all 35 stages in 18.0 minutes with the same status. Every entry of its Task 27 table (`pooled`, `n_scored`, `common_pooled`, `n_common`) equals the calendar-label run's, so the label style no longer changes any score.
-- **Targeted checks of the corrections.**
-    - *Task 21.* A panel was built with one context present in training and two first seen in the test window. One of the new contexts has its sector in training; the other does not. Before the fix, MUFASA forecast 0 of the 12 held-out rows of the new contexts; after it, all 12. The first new context draws on its sector pool and the second on the market pool. The training context's loss is unchanged, and `test_only_cells` names both new contexts.
-    - *Task 27.* Model X covered four rows and model Y two of them. Model X's own-row MAPE is 0.30, and on the two common rows it is 0.10. Model Y's figure is 0.20 on both, with `n_common = 2`. These values match a hand calculation.
-    - *Task 29.* In the smoke runs, `table_2_common_support.csv` has one row per market plus the across-market row. Its values match Task 27's `common_pooled` and `n_common`, and the file is listed in Task 29's artefact manifest. `table_2.csv` and the headline `pooled` column are unchanged.
-    - *Task 6.* A point-in-time GICS history was built. It records a carrier as Telecommunication Services before 2018-09-28 and as Communication Services after, and a second firm moving from Information Technology to Communication Services on that date. Before the fix, Task 6 halted on the old name. After it, the carrier is *Communications* in 2016 and in 2019, and the second firm is *Technology* in 2016 and *Communications* in 2019.
-- **Losses unaffected where nothing changed.** In the smoke runs, the Task 21 change affects no row, because every test-window context of the synthetic panels also occurs in training. The forecast losses of every model are therefore identical to those of a run made before the Task 21 and Task 27 corrections.
-- **Not executed.** The Step 4.1 call at `config.yaml` scale was not run, nor was any licensed run. That call has five seeds and full budgets. No figure in this document is a result of the study.
+- **The harness.** `verification/run_usage_example.py` executes the notebook's code cells up to, not including, *Study Assembly*, then this file's Python code cells verbatim, in order, in the same namespace, skipping only Step 4.1. Its only overrides are `SMOKE_OUTPUT_DIR` (`--output-dir`) and, for the vendor run, `FISCAL_LABEL_STYLE` (`--label-style`), each applied after the cell that defines it. Every output shown above is copied from the final run below; the run directory is therefore `/root/mufasa_runs/final` rather than `SMOKE_OUTPUT_DIR`'s default.
+- **Final literal run.** Seed 11, smoke budgets of `make_smoke_configuration`, calendar fiscal labels. The driver returned `completed` and the published status is `pipeline_verified_on_synthetic_data`; all 35 stages are recorded `completed`, no failure ledger was written, and the example cells took 18.9 minutes (four runs shared four processor cores).
+- **Vendor-label run.** The same, with `FISCAL_LABEL_STYLE = "vendor"` (`"FY…"` labels, June filers and a fiscal-year change). It completed all 35 stages in 18.6 minutes with the same status, and every entry of its Task 27 table (`pooled`, `n_scored`, `common_pooled`, `n_common`) equals the calendar-label run's (`verification/compare_task27.py`: 0 of 108 rows differ).
+- **Against the run before corrections 7–12.** A run of the notebook of commit `9b184f7` in the same environment (10.9 minutes) differs from the final run only in the `pooled` and `n_scored` figures of `ev_ebit_baseline` and `ev_ebitda_baseline` (12 of 108 rows each), which correction 11 changes, and, because those two baselines now cover fewer rows, in every model's `common_pooled` and `n_common`. Each other correction was run on its own and left all 108 rows unchanged: the stand-in meta role proposes equal weights, so the coordinator's subset is every perspective and its start the uniform point; the synthetic panels carry one snapshot reference date, so no share-basis break is flagged; and no smoke cell's chosen start is feasible but unconverged.
+- **Platform.** The `MUFASA` (0.399268 on 1,024 rows) and `rf` (13.866060) figures, and the last digit of the cash-flow coefficient, differ from the earlier Windows record (0.399505 on 1,023 rows; 13.876682). The run before corrections 7–12 gives the same figures as the final run in this environment, so the difference is the platform's floating point, not a correction.
+- **Targeted checks.** Each prints `CHECK OK`: `check_task21_solver.py` (60 seeded difficult cells: 2 halted before correction 7 in this environment, 0 after, and 4 chosen starts are feasible but unconverged), `check_task21_coordinator_subset.py`, `check_task20_per_market.py`, `check_task7_share_basis.py`, `check_task25_ev_bridge.py` and `check_reasoning_strip.py`. The checks of the first six corrections are described in the earlier record.
+- **Not executed.** The Step 4.1 call at `config.yaml` scale was not run, nor was any licensed run, and vLLM was not installed. That call has five seeds and full budgets. No figure in this document is a result of the study.
 
 ### **Summary of the Execution Flow**
 
@@ -3106,7 +3113,7 @@ This example was executed on 2026-10-23 on Windows 11 with Python 3.13.9, NumPy 
 | `reliability_profiles` | The per-perspective seven-family profiles of Task 18 (asset 3) |
 | `aggregated_predictions` | The Equation (4) aggregate keyed by market, quarter and firm, with partition, context key, target and aggregate status |
 | `perspective_predictions` | The long per-perspective predictions the aggregate was formed from |
-| `distilled_learnings` | The eight-block summaries: `agent` (per perspective) and `meta` (per context) |
+| `distilled_learnings` | The eight-block summaries: `agent` (per perspective) and `meta` (per `market::unit`) |
 | `missing_aggregate_counts`, `provenance`, `run_id`, `seed` | Coverage diagnostics and the run's provenance record |
 
 **On disk**, each stage writes beneath `<output_dir>/task_NN/`. The principal artefacts are:
@@ -3120,10 +3127,11 @@ This example was executed on 2026-10-23 on Windows 11 with Python 3.13.9, NumPy 
 │              nondeterminism_sources.json, gap_decision_register.jsonl
 ├── task_02/ … task_04/                   # deviation ledgers, quarantine, Gate 0, cleaned panel
 ├── task_22/   per-seed scopes holding Tasks 5–21: point-in-time panel, regime timeline,
-│              split boundaries, codebook, aggregates, semantic index, prompt logs,
-│              trajectories, expressions.json, losses.json, profiles.json, ledger.jsonl,
-│              cell_registry.json, per_cell_weights.json, z_meta.json,
-│              Task 21 summary (with test_only_cells)
+│              split boundaries, share_basis_audit_task_7.csv, codebook, aggregates,
+│              semantic index, prompt logs, trajectories, expressions.json, losses.json,
+│              profiles.json, ledger.jsonl, task_20/<market>/ (cell_registry.json,
+│              per_cell_weights.json, per_cell_proposals.json, z_meta.json) and the
+│              Task 21 summary (test_only_cells, non_converged_units, weights_mechanism)
 ├── task_23/ … task_26/                   # baseline predictions, manifests and registrations
 ├── task_27/   mape_variants_task_27.csv (incl. common_pooled, n_common), secondary_metrics_task_27.csv,
 │              row_losses_task_27.csv, reliability_profiles_task_27.json
@@ -3149,9 +3157,10 @@ multi_agent_symbolic_discovery_for_financial_fundamental_analysis/
 ├── multi_agent_symbolic_discovery_for_financial_fundamental_analysis_ipo_main_1.png # Inputs-Processes-Outputs diagram
 ├── config.yaml                 # study configuration, version 1.1.0 (14 top-level blocks)
 ├── study_config.json           # the same configuration mapping as JSON (read by run_study_execution)
-├── requirements.txt            # pinned versions of the verified environment (optional services unpinned)
+├── requirements.txt            # pinned versions of the verified environment (optional services commented out)
 ├── usage_example.md            # the verified usage example (also embedded in the notebook's Draft 1 section)
 ├── key_callables_discussion.txt  # IPOs of the 36 key callables (also embedded in the notebook's Draft 1 section)
+├── verification/               # the usage-example runner, the Task 27 comparison and the targeted checks of the corrections
 ├── inputs_discussion.txt       # discussion of the study inputs
 ├── LICENSE
 └── README.md
@@ -3166,7 +3175,7 @@ All parameters live in `config.yaml` (and its JSON twin `study_config.json`). Ke
 | Section / key | What it controls |
 |---|---|
 | `validation.fundamental_schema`, `validation.macro_schema` | The declared 79-column firm-quarter schema and dtypes, the macro series and the arithmetic verification targets |
-| `market_structure` | The index registry and ticker map, vendor symbols, the conflicts registry, the 18-entry `gap_register` and the FTSE candidate symbols |
+| `market_structure` | The index registry and ticker map, vendor symbols, the conflicts registry, the 20-entry `gap_register` and the FTSE candidate symbols |
 | `cleaning.ratio_specs`, `max_failure_fraction`, `warn_threshold` | The ten downstream ratios and the Gate 0 quarantine thresholds |
 | `pipeline.index_to_market`, `pipeline.perspectives`, `pipeline.perspective_agents` | Markets, the five perspectives, and each agent's theory, preferred variables, structural pattern and design principle |
 | `pipeline.train_fraction` / `embargo_quarters` / `fit_fraction` | The 0.8 chronological split, the 1-quarter embargo and the 0.9 fit share (10 % validation carve-out) |
@@ -3176,7 +3185,7 @@ All parameters live in `config.yaml` (and its JSON twin `study_config.json`). Ke
 | `pipeline.retrieval_top_k`, `retrieval_sensitivity_depths`, `retrieval_pass_threshold` | Retrieval depth 20, the pre-flight depths 5/10/20 and the 0.9 pre-flight pass rate |
 | `pipeline.memory_cap`, `min_cell_occupancy`, `min_firm_quarters` | The 500-record memory cap and the 200 firm-quarter context-cell floors |
 | `pipeline.weight_constraint`, `regime_timeline` | `simplex` vs `nonnegative` weights; `causal` vs `ex_post` regimes |
-| `pipeline.serving` | `model_id`, `model_revision` (must be pinned) and `dry_run` |
+| `pipeline.serving` | `model_id` (`Qwen/Qwen3-4B-Thinking-2507`), `model_revision` (pinned to the commit reported on 2026-10-23; re-verify) and `dry_run` |
 | `baselines.ml`, `.symbolic`, `.llm`, `.naive` | RF/HistGBM/NN hyperparameters, FunSearch and LLM-SR budgets, Fin-R1/Fino1 fields and the ERP, and the framework adapters and entry points |
 | `evaluation.alpha`, `evaluation.figures` | The significance level (0.05) and Figures 5–8 |
 | `ablation`, `memory_ablation`, `sensitivity`, `robustness` | Published comparison tables, memory regimes and strategies, the sensitivity grid, and the robustness battery |
@@ -3184,7 +3193,7 @@ All parameters live in `config.yaml` (and its JSON twin `study_config.json`). Ke
 
 **Before a licensed run:**
 
-- pin `pipeline.serving.model_revision` to the 40-hex commit of the served checkpoint;
+- re-verify `pipeline.serving.model_revision` (pinned to the commit reported on 2026-10-23) against the served checkpoint, and serve it with the declared vLLM 0.19.1 or a version verified to support Qwen3;
 - verify the FTSE Asia Pacific ex-Japan symbol and supply the vendor symbol list;
 - supply real services;
 - set `MUFASA_STUDY_DATA_DIR` to the directory holding `study_config.json` and the five panel pickles.
@@ -3209,7 +3218,7 @@ Contributions are welcome. Please follow the conventions of the notebook:
 4. **Improve the classical baselines.** Replace the single-stage Gordon parameterisation of DDM, FCFE and FCFF with multi-stage or adaptive assumptions, as the paper's limitations section suggests, while keeping the single-stage version as the reference.
 5. **Learn the agent and context composition.** The number of perspectives and the (sector, regime) contexts are fixed by design. Add perspectives such as macro, dividend or momentum, or richer contexts, and learn the composition adaptively.
 6. **Add news and sentiment signals** for Communications and Consumer Discretionary, where the paper attributes larger tail errors to forward-looking expectations that fundamentals do not capture.
-7. **Pin the full environment.** `requirements.txt` pins the verified versions of the synthetic-run stack only. Publish a complete `requirements.lock` and container image, as `study_specification.infrastructure` declares, including verified versions of `sentence-transformers`, `vllm` and `pysr` for the licensed run.
+7. **Pin the full environment.** `requirements.txt` pins the verified versions of the synthetic-run stack only. Publish a complete `requirements.lock` and container image, as `study_specification.infrastructure` declares, including verified versions of `sentence-transformers`, `vllm` (declared 0.19.1, not yet installed or run) and `pysr` for the licensed run.
 
 ## License
 

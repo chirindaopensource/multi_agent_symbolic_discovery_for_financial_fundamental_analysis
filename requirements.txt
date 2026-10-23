@@ -86,12 +86,13 @@ ipykernel==6.31.0
 # Task 11 halts; it also installs torch, whose manual_seed is a seeding hook.
 # sentence-transformers
 #
-# Task 12 LLM serving (Qwen/Qwen3-4B-Thinking, 32,768-token context). vLLM
-# publishes Linux/CUDA builds only. STUDY_ENVIRONMENT_DECLARATION declares
-# vllm 0.6.6, but that release predates vLLM's Qwen3 support and does not
-# support Python 3.13. Resolve the version against the served model before
-# pinning.
-# vllm
+# Task 12 LLM serving (Qwen/Qwen3-4B-Thinking-2507, 32,768-token context).
+# vLLM publishes Linux/CUDA builds only. STUDY_ENVIRONMENT_DECLARATION declares
+# vllm 0.19.1: Qwen3 support (>= 0.8.5), requires_python >=3.10,<3.14 (the
+# container's Python 3.11) and torch 2.10.0 on the CUDA 12.8 runtime (the
+# declared CUDA 12 base image); later releases pin torch 2.11+ on CUDA 13.
+# It was not installed or run here.
+# vllm==0.19.1
 #
 # Task 24 PySR baseline. Requires a Julia runtime, which PySR installs on
 # first import.

@@ -37,7 +37,7 @@
 #  • Seeds are an argument of run_task_36 (11, 23, 41, 67, 101).
 #  • Values tagged [UNSPECIFIED IN MANUSCRIPT] are reproduction decisions and
 #    are listed in market_structure.gap_register.
-#  • Before a licensed run: pin pipeline.serving.model_revision, verify the
+#  • Before a licensed run: re-verify the pinned pipeline.serving.model_revision, verify the
 #    FTSE Asia Pacific ex-Japan symbol and supply the vendor symbol list.
 #
 #  Paper Reference:
@@ -346,7 +346,11 @@ market_structure:
     - path: "pipeline.serving.model_revision"
       tag: "[UNSPECIFIED IN MANUSCRIPT]"
       decision: "recorded"
-      justification: "Model revision of Qwen3-4B-Thinking is not published; it must be pinned to a 40-hex commit before a licensed run."
+      justification: "Model revision of Qwen3-4B-Thinking is not published; it is pinned to the Hugging Face commit 768f209d9ea81521153ed38c47d515654e938aea of Qwen/Qwen3-4B-Thinking-2507 reported on 2026-10-23, to be re-verified before a licensed run."
+    - path: "pipeline.serving.model_id"
+      tag: "[UNSPECIFIED IN MANUSCRIPT]"
+      decision: "recorded"
+      justification: "The paper names Qwen3-4B-Thinking; the public Hugging Face checkpoint of that name is Qwen/Qwen3-4B-Thinking-2507 (the un-suffixed identifier is not a public repository), served with vLLM 0.19.1, the newest release supporting Qwen3, Python 3.11 and CUDA 12.x."
     - path: "market_structure.study.index_ticker_map.FTSE_APAC_EX_JP"
       tag: "[UNSPECIFIED IN MANUSCRIPT]"
       decision: "recorded"
@@ -407,6 +411,10 @@ market_structure:
       tag: "[UNSPECIFIED IN MANUSCRIPT]"
       decision: "recorded"
       justification: "The learnings-history page size is a packaging decision."
+    - path: "study_specification.baselines.classical_valuation.EV_EBIT"
+      tag: "[UNSPECIFIED IN MANUSCRIPT]"
+      decision: "recorded"
+      justification: "The paper gives no formula for the EV/EBIT and EV/EBITDA baselines; their product is enterprise value per share, a whole-firm claim, so net debt per share, (bs_total_debt - bs_cash_and_equivalents) / bs_shares_outstanding converted by the frozen reporting-to-trading rate, bridges it to the share-price target, as the FCFF baseline already nets debt less cash."
   ftse_candidate_symbols: ["^FTAPXJ", "^FTSEAPXJ", "FTAWXJ", "^FTASIAPXJ"]
 # ============================================================================
 # TASK 4 — restatement discipline, structural zeros, denominators and Gate 0
@@ -1045,8 +1053,8 @@ pipeline:
       text: "Total equity less goodwill and intangibles at period end, per period-end share. reporting_currency_per_share"
       expected_var_ids: ["v018"]
   serving:
-    model_revision: "0000000000000000000000000000000000000000"  # [ABSENT] must be pinned to the served 40-hex commit before a licensed run
-    model_id: "Qwen/Qwen3-4B-Thinking"  # [SPECIFIED §4] Qwen3-4B-Thinking
+    model_revision: "768f209d9ea81521153ed38c47d515654e938aea"  # [REVISED: Pinned] Hugging Face commit of Qwen/Qwen3-4B-Thinking-2507 reported by the owner's Hugging Face API look-up on 2026-10-23; not re-verified from the reproduction environment (huggingface.co outside its network policy); re-verify before a licensed run
+    model_id: "Qwen/Qwen3-4B-Thinking-2507"  # [REVISED: Corrected] the paper's Qwen3-4B-Thinking (§4) resolves to the public -2507 checkpoint; the un-suffixed identifier is not a public repository
     dry_run: false  # false: a licensed run serves the model live
   generator: "model"  # the served model; 'stand_in' is never the method
   aggregate_features: ["P_E", "P_B", "EV_EBIT", "EV_EBITDA", "Revenue_ps"]
@@ -2662,8 +2670,8 @@ study_specification:
         budget_matched_to_pysr: true
     classical_valuation:
       P_E: {structure: "EPS_TTM * SECTOR_MEDIAN_PE", citation: "Damodaran (2012)"}
-      EV_EBIT: {structure: "EBIT_ps * SECTOR_MEDIAN_EV_EBIT", citation: "Damodaran (2012)"}
-      EV_EBITDA: {structure: "EBITDA_ps * SECTOR_MEDIAN_EV_EBITDA", citation: "Damodaran (2012)"}
+      EV_EBIT: {structure: "EBIT_ps * SECTOR_MEDIAN_EV_EBIT - NET_DEBT_ps", citation: "Damodaran (2012)"}  # [REVISED: Corrected] EV is a whole-firm claim; net debt per share bridges it to the price target
+      EV_EBITDA: {structure: "EBITDA_ps * SECTOR_MEDIAN_EV_EBITDA - NET_DEBT_ps", citation: "Damodaran (2012)"}  # [REVISED: Corrected] EV is a whole-firm claim; net debt per share bridges it to the price target
       P_B: {structure: "BVPS * SECTOR_MEDIAN_P_BOOK", citation: "Damodaran (2012)"}
       DDM: {structure: "D_1 / (r - g)", single_stage: true, citation: "Gordon (1962)"}
       FCFE: {structure: "FCFE_1 / (r_e - g)", single_stage: true, citation: "Damodaran (2012)"}
