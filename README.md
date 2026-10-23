@@ -52,10 +52,13 @@
 [![PyYAML](https://img.shields.io/badge/PyYAML-usage%20example%20only-lightgrey?style=flat)](https://pyyaml.org/)
 [![Jupyter](https://img.shields.io/badge/Jupyter-%23F37626.svg?style=flat&logo=Jupyter&logoColor=white)](https://jupyter.org/)
 [![Open Source](https://img.shields.io/badge/Open%20Source-%E2%9D%A4-brightgreen?style=flat)](https://github.com/chirindaopensource/multi_agent_symbolic_discovery_for_financial_fundamental_analysis)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/chirindaopensource/multi_agent_symbolic_discovery_for_financial_fundamental_analysis/blob/main/multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb)
 
 **Repository:** `https://github.com/chirindaopensource/multi_agent_symbolic_discovery_for_financial_fundamental_analysis`
 
 **Owner:** 2026 Craig Chirinda (Open Source Projects)
+
+> **Viewing the notebook.** GitHub's built-in notebook viewer cannot syntax-highlight the whole of `multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb`. The viewer has a time limit for highlighting, and the notebook's code (about 3.8 million characters) exceeds it. Once the limit is reached, every remaining code cell is shown as run-together text without line breaks. Where that starts varies from one page load to the next. The file itself is intact: every cell keeps its line breaks and parses as Python. To read every cell formatted, open the notebook in [Google Colab](https://colab.research.google.com/github/chirindaopensource/multi_agent_symbolic_discovery_for_financial_fundamental_analysis/blob/main/multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb) or [nbviewer](https://nbviewer.org/github/chirindaopensource/multi_agent_symbolic_discovery_for_financial_fundamental_analysis/blob/main/multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb), or clone the repository and open it in Jupyter.
 
 This repository contains an **independent**, professional-grade Python implementation of the ideas in the arXiv preprint "*Self-Evolving Multi-Agent Symbolic Discovery for Financial Fundamental Analysis*" (arXiv:2609.32746, e-journal submission 26 September 2026) by:
 
