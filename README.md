@@ -98,7 +98,7 @@ The design targets domains in which no single theory is correct, conditions shif
 
 ## Introduction
 
-This project implements the methodology of Koa, Orestav, Wu, Wooldridge and Huang (2026). Its core is the Jupyter notebook `multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb`, which has **61 cells (20 markdown and 41 code)**. The code cells define **740 top-level callables: 661 functions, 32 classes and 47 methods**, counted with Python's `ast` module over top-level definitions and the methods of top-level classes (nested helper functions are not counted). The code is organised as one *Supporting Definitions* cell followed by **36 task cells, Tasks 1–36**. Task 36 holds the study interface, `run_task_36`.
+This project implements the methodology of Koa, Orestav, Wu, Wooldridge and Huang (2026). Its core is the Jupyter notebook `multi_agent_symbolic_discovery_for_financial_fundamental_analysis.ipynb`. Its code defines **740 top-level callables: 661 functions, 32 classes and 47 methods**, counted with Python's `ast` module over top-level definitions and the methods of top-level classes (nested helper functions are not counted). The code is organised as a *Supporting Definitions* section followed by **36 tasks, Tasks 1–36**, each in its own cell. Task 36 holds the study interface, `run_task_36`.
 
 **The problem.** Symbolic regression (SR) has worked well in the natural sciences, where the goal is to recover one stable governing equation. The paper argues that financial valuation is a structurally different class of symbolic discovery problem, with three defining characteristics:
 
@@ -313,106 +313,103 @@ The diagram below illustrates the Inputs, Processes and Outputs (IPOs) of the im
 
 ## Methodology Implemented
 
-Each task below names its orchestrator, its notebook cell and its exact cell title. Task $N$ is cell $N+22$.
+Each task below names its orchestrator and the exact title of its notebook cell.
 
-1. **Task 1, Environment Bootstrap and Infrastructure Provisioning** (`run_task_1`, cell 23). Validates the whole configuration and the licensing boundary, then writes the lock file, the provenance manifest, the nondeterminism register and the environment manifest through an atomic rename. Docker and vLLM are never invoked here.
-2. **Task 2, Input Validation for Fundamental and Macro Panels** (`run_task_2`, cell 24). Two-way schema and dtype checks against `config.validation`, arithmetic verification, deviation ledgers, the fundamental quarantine set and macro coverage.
-3. **Task 3, Input Validation for Index, Membership, and Config** (`run_task_3`, cell 25). Certifies the index registry and the ticker map (resolving the FTSE APAC ex-Japan symbol from candidates), deduplicates membership intervals and checks configuration consistency.
-4. **Task 4, Data Cleansing and Quality Filtering** (`run_task_4`, cell 26). The original-filing snapshot assertion, restatement discipline, structural-zero audit, free-cash-flow sign audit, denominator policy and the Gate 0 quarantine.
-5. **Task 5, Point-in-Time Panel Construction** (`run_task_5`, cell 27). Fiscal-to-calendar mapping, the filing-date gate and the membership gate, combined into `eligible_for_design_matrix`.
-6. **Task 6, Context Labelling and Causal Regime Dating** (`run_task_6`, cell 28). Maps sectors to the paper's 11 labels, dates the causal and ex-post ±20 % regime timelines, and builds the context key and the cell occupancy.
-7. **Task 7, Target Construction and Temporal Partitioning** (`run_task_7`, cell 29). Applies the eligibility filter, builds the forward-shifted target, and makes the per-market 80/20 split with a one-quarter embargo and a 90/10 fit/validation carve-out, freezing every artefact by digest.
-8. **Task 8, Codebook and Per-Share Variable Construction** (`run_task_8`, cell 30). Builds the per-share quotients, tangible book, equity and enterprise multiples and the denominator floor under one admissibility helper, plus the versioned codebook and symbol registry.
-9. **Task 9, Cross-Sectional and Sector Aggregates** (`run_task_9`, cell 31). Market and sector medians, means and dispersion under frozen winsorisation bounds. A sector median requires at least 5 firms per sector-quarter, a market aggregate at least 50 firms per quarter.
-10. **Task 10, Lagged and Engineered Features** (`run_task_10`, cell 32). Lags 1, 4 and 8 of EPS, TTM revenue, EBITDA, EBIT and shares; year-on-year growth pairs; and engineered flags.
-11. **Task 11, Semantic Retrieval Index** (`run_task_11`, cell 33). An exact in-memory cosine index over the codebook (default encoder `all-MiniLM-L6-v2`, depth 20), with pre-flight at depths 5, 10 and 20 and a bound retrieval callable for Task 15.
-12. **Task 12, LLM Serving Infrastructure and Role Configuration** (`run_task_12`, cell 34). One server for the seven role keys (five specialists, the meta-coordinator and the distiller), a context-window assertion, smoke requests per sampling profile, out-of-memory back-off and a wall-clock budget.
-13. **Task 13, Prompt Assembly and Token Budgeting** (`run_task_13`, cell 35). Specialist, meta and distillation prompts under per-block budgets, with prompt-hash and token logs.
-14. **Task 14, Grammar Parser and Error Encoding** (`run_task_14`, cell 36). The candidate grammar, the parser, and the reason taxonomy with suggested actions.
-15. **Task 15, Philosopher Agent Training Loop** (`run_task_15`, cell 37). Algorithm 1 for the five perspectives, with trajectories, solver records, expressions, losses and profiles.
-16. **Task 16, Differential Evolution Coefficient Fitting** (`run_task_16`, cell 38). Population multiplier 15, up to 200 generations, crossover 0.7, differential weight 0.5, bounds $\pm10^6$, early stop after 20 generations at tolerance $10^{-6}$, and an admissible-share floor of 0.5.
-17. **Task 17, Code Execution Sandbox** (`run_task_17`, cell 39). Compiles, executes and audits each candidate against the design matrix, returning aligned predictions and a defined-row mask.
-18. **Task 18, Statistical Memory and Seven-Family Profiling** (`run_task_18`, cell 40). The seven-family profile, a memory store keyed by canonical structure hash with a 500-record cap, and a JSONL ledger.
-19. **Task 19, Natural-Language Memory Distillation** (`run_task_19`, cell 41). Eight-block distillation at temperature 0.3, with number grounding, rejection of causal phrases, resampling and memory-regime support.
-20. **Task 20, Meta-Coordinator Training** (`run_task_20`, cell 42). Algorithm 2 per context cell, with sector-pool and market-pool escalation and the meta trajectory.
-21. **Task 21, SLSQP Weight Fitting** (`run_task_21`, cell 43). Simplex weights per (market, sector, regime) cell from multiple starts. The frozen matrix is applied to held-out rows without refitting.
-22. **Task 22, Master Orchestrator Function** (`run_task_22`, cell 44). Runs stages 5–12, 15, 20 and 21 once per seed with checkpoints and returns `MufasaRunArtifacts`.
-23. **Task 23, ML Baselines and Feature Policy Equalisation** (`run_task_23`, cell 45). Random forest (500 trees), HistGBM (200 iterations) and a neural net (64 hidden units, 200 epochs), all under one frozen preprocessing policy.
-24. **Task 24, Symbolic Regression Baselines** (`run_task_24`, cell 46). PySR (27 populations, 30 iterations, maximum size 30), FunSearch and LLM-SR, selected on validation and evaluated once on test.
-25. **Task 25, Financial LLM and Classical Valuation Baselines** (`run_task_25`, cell 47). Fin-R1 and Fino1; sector-median P/E, EV/EBIT, EV/EBITDA and P/B; and single-stage Gordon DDM, FCFE and FCFF with an equity risk premium of 0.05.
-26. **Task 26, Agentic and Naive Price-Level Baselines** (`run_task_26`, cell 48). FinCon and FinVision through declared adapters, plus persistence, cross-sectional-mean and trend benchmarks.
-27. **Task 27, Evaluation Metrics and Aggregation** (`run_task_27`, cell 49). MAPE in its three variants, secondary metrics, row losses and reliability profiles.
-28. **Task 28, Diebold-Mariano Statistical Inference** (`run_task_28`, cell 50). Newey–West with HLN, the two-way clustered view and Benjamini–Hochberg control.
-29. **Task 29, Orchestrator Function for Comparative Evaluation** (`run_task_29`, cell 51). The comparative scorecard, the counterparts of Tables 2 and 5, and Figures 5–8.
-30. **Task 30, Perspective Ablation Robustness Analysis** (`run_task_30`, cell 52). Five variants (`SINGLE_PERSPECTIVE`, `EQUAL_WEIGHTS`, `NO_STATS_MEMORY`, `BEST_SINGLE_AGENT`, `FULL_MUFASA`) run through the real pipeline for every seed: the counterpart of Table 3.
-31. **Task 31, Orchestrator Function for Memory-Regime Ablation** (`run_task_31`, cell 53). Twelve cells: three memory regimes (`BINARY_PASS_FAIL`, `MAPE_ONLY`, `FULL_STATISTICAL`) crossed with four strategies (`CONTEXT_LEARNED`, `EQUAL`, `BEST_SINGLE`, `SOFTMAX`).
-32. **Task 32, Memory-Regime Ablation Robustness Analysis** (`run_task_32`, cell 54). The counterpart of Table 10, with the effect register, the cross-table check and the manuscript comparison.
-33. **Task 33, Orchestrator Function for Extended Sensitivity** (`run_task_33`, cell 55). The grid over retrieval depth, memory cap, maximum operators, weight constraint, regime causality and aggregation order.
-34. **Task 34, Extended Sensitivity Robustness Analysis** (`run_task_34`, cell 56). The shuffled-prior control, the sensitivity battery and the cross-perspective communication variant.
-35. **Task 35, Artefacts, Provenance, and Reproducibility Packaging** (`run_task_35`, cell 57). The expression registry, weight matrix, learnings history and publication package, bound by digest and written through a staging directory only after Gates 0–8 pass.
-36. **Task 36, Top-Level Pipeline Orchestrator** (`run_task_36`, cell 58). Validates, orders, checkpoints and executes the 35 stages, writes the manifest and the failure ledger, and decides the status.
+1. **Task 1, Environment Bootstrap and Infrastructure Provisioning** (`run_task_1`). Validates the whole configuration and the licensing boundary, then writes the lock file, the provenance manifest, the nondeterminism register and the environment manifest through an atomic rename. Docker and vLLM are never invoked here.
+2. **Task 2, Input Validation for Fundamental and Macro Panels** (`run_task_2`). Two-way schema and dtype checks against `config.validation`, arithmetic verification, deviation ledgers, the fundamental quarantine set and macro coverage.
+3. **Task 3, Input Validation for Index, Membership, and Config** (`run_task_3`). Certifies the index registry and the ticker map (resolving the FTSE APAC ex-Japan symbol from candidates), deduplicates membership intervals and checks configuration consistency.
+4. **Task 4, Data Cleansing and Quality Filtering** (`run_task_4`). The original-filing snapshot assertion, restatement discipline, structural-zero audit, free-cash-flow sign audit, denominator policy and the Gate 0 quarantine.
+5. **Task 5, Point-in-Time Panel Construction** (`run_task_5`). Fiscal-to-calendar mapping, the filing-date gate and the membership gate, combined into `eligible_for_design_matrix`.
+6. **Task 6, Context Labelling and Causal Regime Dating** (`run_task_6`). Maps sectors to the paper's 11 labels, dates the causal and ex-post ±20 % regime timelines, and builds the context key and the cell occupancy.
+7. **Task 7, Target Construction and Temporal Partitioning** (`run_task_7`). Applies the eligibility filter, builds the forward-shifted target, and makes the per-market 80/20 split with a one-quarter embargo and a 90/10 fit/validation carve-out, freezing every artefact by digest.
+8. **Task 8, Codebook and Per-Share Variable Construction** (`run_task_8`). Builds the per-share quotients, tangible book, equity and enterprise multiples and the denominator floor under one admissibility helper, plus the versioned codebook and symbol registry.
+9. **Task 9, Cross-Sectional and Sector Aggregates** (`run_task_9`). Market and sector medians, means and dispersion under frozen winsorisation bounds. A sector median requires at least 5 firms per sector-quarter, a market aggregate at least 50 firms per quarter.
+10. **Task 10, Lagged and Engineered Features** (`run_task_10`). Lags 1, 4 and 8 of EPS, TTM revenue, EBITDA, EBIT and shares; year-on-year growth pairs; and engineered flags.
+11. **Task 11, Semantic Retrieval Index** (`run_task_11`). An exact in-memory cosine index over the codebook (default encoder `all-MiniLM-L6-v2`, depth 20), with pre-flight at depths 5, 10 and 20 and a bound retrieval callable for Task 15.
+12. **Task 12, LLM Serving Infrastructure and Role Configuration** (`run_task_12`). One server for the seven role keys (five specialists, the meta-coordinator and the distiller), a context-window assertion, smoke requests per sampling profile, out-of-memory back-off and a wall-clock budget.
+13. **Task 13, Prompt Assembly and Token Budgeting** (`run_task_13`). Specialist, meta and distillation prompts under per-block budgets, with prompt-hash and token logs.
+14. **Task 14, Grammar Parser and Error Encoding** (`run_task_14`). The candidate grammar, the parser, and the reason taxonomy with suggested actions.
+15. **Task 15, Philosopher Agent Training Loop** (`run_task_15`). Algorithm 1 for the five perspectives, with trajectories, solver records, expressions, losses and profiles.
+16. **Task 16, Differential Evolution Coefficient Fitting** (`run_task_16`). Population multiplier 15, up to 200 generations, crossover 0.7, differential weight 0.5, bounds $\pm10^6$, early stop after 20 generations at tolerance $10^{-6}$, and an admissible-share floor of 0.5.
+17. **Task 17, Code Execution Sandbox** (`run_task_17`). Compiles, executes and audits each candidate against the design matrix, returning aligned predictions and a defined-row mask.
+18. **Task 18, Statistical Memory and Seven-Family Profiling** (`run_task_18`). The seven-family profile, a memory store keyed by canonical structure hash with a 500-record cap, and a JSONL ledger.
+19. **Task 19, Natural-Language Memory Distillation** (`run_task_19`). Eight-block distillation at temperature 0.3, with number grounding, rejection of causal phrases, resampling and memory-regime support.
+20. **Task 20, Meta-Coordinator Training** (`run_task_20`). Algorithm 2 per context cell, with sector-pool and market-pool escalation and the meta trajectory.
+21. **Task 21, SLSQP Weight Fitting** (`run_task_21`). Simplex weights per (market, sector, regime) cell from multiple starts. The frozen matrix is applied to held-out rows without refitting.
+22. **Task 22, Master Orchestrator Function** (`run_task_22`). Runs stages 5–12, 15, 20 and 21 once per seed with checkpoints and returns `MufasaRunArtifacts`.
+23. **Task 23, ML Baselines and Feature Policy Equalisation** (`run_task_23`). Random forest (500 trees), HistGBM (200 iterations) and a neural net (64 hidden units, 200 epochs), all under one frozen preprocessing policy.
+24. **Task 24, Symbolic Regression Baselines** (`run_task_24`). PySR (27 populations, 30 iterations, maximum size 30), FunSearch and LLM-SR, selected on validation and evaluated once on test.
+25. **Task 25, Financial LLM and Classical Valuation Baselines** (`run_task_25`). Fin-R1 and Fino1; sector-median P/E, EV/EBIT, EV/EBITDA and P/B; and single-stage Gordon DDM, FCFE and FCFF with an equity risk premium of 0.05.
+26. **Task 26, Agentic and Naive Price-Level Baselines** (`run_task_26`). FinCon and FinVision through declared adapters, plus persistence, cross-sectional-mean and trend benchmarks.
+27. **Task 27, Evaluation Metrics and Aggregation** (`run_task_27`). MAPE in its three variants, secondary metrics, row losses and reliability profiles.
+28. **Task 28, Diebold-Mariano Statistical Inference** (`run_task_28`). Newey–West with HLN, the two-way clustered view and Benjamini–Hochberg control.
+29. **Task 29, Orchestrator Function for Comparative Evaluation** (`run_task_29`). The comparative scorecard, the counterparts of Tables 2 and 5, and Figures 5–8.
+30. **Task 30, Perspective Ablation Robustness Analysis** (`run_task_30`). Five variants (`SINGLE_PERSPECTIVE`, `EQUAL_WEIGHTS`, `NO_STATS_MEMORY`, `BEST_SINGLE_AGENT`, `FULL_MUFASA`) run through the real pipeline for every seed: the counterpart of Table 3.
+31. **Task 31, Orchestrator Function for Memory-Regime Ablation** (`run_task_31`). Twelve cells: three memory regimes (`BINARY_PASS_FAIL`, `MAPE_ONLY`, `FULL_STATISTICAL`) crossed with four strategies (`CONTEXT_LEARNED`, `EQUAL`, `BEST_SINGLE`, `SOFTMAX`).
+32. **Task 32, Memory-Regime Ablation Robustness Analysis** (`run_task_32`). The counterpart of Table 10, with the effect register, the cross-table check and the manuscript comparison.
+33. **Task 33, Orchestrator Function for Extended Sensitivity** (`run_task_33`). The grid over retrieval depth, memory cap, maximum operators, weight constraint, regime causality and aggregation order.
+34. **Task 34, Extended Sensitivity Robustness Analysis** (`run_task_34`). The shuffled-prior control, the sensitivity battery and the cross-perspective communication variant.
+35. **Task 35, Artefacts, Provenance, and Reproducibility Packaging** (`run_task_35`). The expression registry, weight matrix, learnings history and publication package, bound by digest and written through a staging directory only after Gates 0–8 pass.
+36. **Task 36, Top-Level Pipeline Orchestrator** (`run_task_36`). Validates, orders, checkpoints and executes the 35 stages, writes the manifest and the failure ledger, and decides the status.
 
 ## Core Components (Notebook Structure)
 
-The notebook has 61 cells, 20 markdown and 41 code:
+The notebook is organised in the following order, from top to bottom:
 
-| Cell | Content |
+| Section | Content |
 |---|---|
-| 0 | Empty code cell |
-| 1 | `# Paper`: title, authors, submission date, arXiv link and abstract (markdown) |
-| 2–16 | Study documentation (markdown): *Paper Summary*, *Equations*, *Algorithms*, *Network Architectures*, *System IPO*, *Reproduction Steps*, *Essential Sections*, *Skills*, *Skills For Template*, *Data Structures: Input*, *Data Structures: Dataframes*, *Data Structures: Parameters*, *Data Structures: Parameters Alt*, *Data Structures: Configuration*, *Use Cases* |
-| 17 | `# Use Case Extraction`: the decision-engine statement (markdown) |
-| 18 | `# Import Essential Modules` heading (markdown) |
-| 19 | The consolidated import cell. `from __future__ import annotations` comes first. |
-| 20 | `# Implementation` heading (markdown) |
-| 21 | `# Draft 1` heading (markdown) |
-| 22 | `# Supporting Definitions`: shared constants and helpers |
-| 23–58 | The 36 task cells; Task $N$ is cell $N+22$ |
-| 59 | `# Study Assembly`: declares `STUDY_RESULTS` and `STUDY_STATUS` |
-| 60 | `# Study Execution`: calls `run_study_execution()` and prints the status and manifest path |
+| `# Paper` | Title, authors, submission date, arXiv link and abstract (markdown) |
+| Study documentation | Markdown sections: *Paper Summary*, *Equations*, *Algorithms*, *Network Architectures*, *System IPO*, *Reproduction Steps*, *Essential Sections*, *Skills*, *Skills For Template*, *Data Structures: Input*, *Data Structures: Dataframes*, *Data Structures: Parameters*, *Data Structures: Parameters Alt*, *Data Structures: Configuration*, *Use Cases* |
+| `# Use Case Extraction` | The decision-engine statement (markdown) |
+| `# Import Essential Modules` | The consolidated import cell. `from __future__ import annotations` comes first. |
+| `# Implementation`, `# Draft 1` | Section headings (markdown) |
+| `# Supporting Definitions` | Shared constants and helpers |
+| `# Task 1` … `# Task 36` | The 36 task cells, one per task, in task order |
+| `# Study Assembly` | Declares `STUDY_RESULTS` and `STUDY_STATUS` |
+| `# Study Execution` | Calls `run_study_execution()` and prints the status and manifest path |
 
-Callable counts for each code cell (top-level definitions only; methods are those of top-level classes):
+Callable counts for each section (top-level definitions only; methods are those of top-level classes):
 
-| Cell | Task | Functions | Classes | Methods | Principal orchestrator |
-|---|---|---|---|---|---|
-| 22 | — | 9 | 0 | 0 | — |
-| 23 | 1 | 42 | 1 | 0 | `run_task_1` |
-| 24 | 2 | 15 | 1 | 1 | `run_task_2` |
-| 25 | 3 | 13 | 0 | 0 | `run_task_3` |
-| 26 | 4 | 20 | 0 | 0 | `run_task_4` |
-| 27 | 5 | 15 | 1 | 1 | `run_task_5` |
-| 28 | 6 | 12 | 0 | 0 | `run_task_6` |
-| 29 | 7 | 25 | 0 | 0 | `run_task_7` |
-| 30 | 8 | 16 | 0 | 0 | `run_task_8` |
-| 31 | 9 | 13 | 0 | 0 | `run_task_9` |
-| 32 | 10 | 9 | 0 | 0 | `run_task_10` |
-| 33 | 11 | 7 | 0 | 0 | `run_task_11` |
-| 34 | 12 | 16 | 2 | 0 | `run_task_12` |
-| 35 | 13 | 17 | 1 | 0 | `run_task_13` |
-| 36 | 14 | 16 | 3 | 15 | `run_task_14` |
-| 37 | 15 | 33 | 1 | 1 | `run_task_15` |
-| 38 | 16 | 11 | 1 | 1 | `run_task_16` |
-| 39 | 17 | 16 | 2 | 17 | `run_task_17` |
-| 40 | 18 | 12 | 0 | 0 | `run_task_18` |
-| 41 | 19 | 11 | 2 | 1 | `run_task_19` |
-| 42 | 20 | 19 | 2 | 1 | `run_task_20` |
-| 43 | 21 | 8 | 0 | 0 | `run_task_21` |
-| 44 | 22 | 27 | 3 | 0 | `run_task_22` |
-| 45 | 23 | 21 | 0 | 0 | `run_task_23` |
-| 46 | 24 | 36 | 1 | 0 | `run_task_24` |
-| 47 | 25 | 11 | 1 | 1 | `run_task_25` |
-| 48 | 26 | 17 | 2 | 0 | `run_task_26` |
-| 49 | 27 | 9 | 0 | 0 | `run_task_27` |
-| 50 | 28 | 16 | 0 | 0 | `run_task_28` |
-| 51 | 29 | 15 | 2 | 6 | `run_task_29` |
-| 52 | 30 | 19 | 1 | 0 | `run_task_30` |
-| 53 | 31 | 13 | 0 | 0 | `run_task_31` |
-| 54 | 32 | 6 | 0 | 0 | `run_task_32` |
-| 55 | 33 | 13 | 0 | 0 | `run_task_33` |
-| 56 | 34 | 16 | 0 | 0 | `run_task_34` |
-| 57 | 35 | 16 | 3 | 0 | `run_task_35` |
-| 58 | 36 | 71 | 2 | 2 | `run_task_36` |
-| | **Total** | **661** | **32** | **47** | **740 callables** |
+| Section | Functions | Classes | Methods | Principal orchestrator |
+|---|---|---|---|---|
+| Supporting Definitions | 9 | 0 | 0 | — |
+| Task 1 | 42 | 1 | 0 | `run_task_1` |
+| Task 2 | 15 | 1 | 1 | `run_task_2` |
+| Task 3 | 13 | 0 | 0 | `run_task_3` |
+| Task 4 | 20 | 0 | 0 | `run_task_4` |
+| Task 5 | 15 | 1 | 1 | `run_task_5` |
+| Task 6 | 12 | 0 | 0 | `run_task_6` |
+| Task 7 | 25 | 0 | 0 | `run_task_7` |
+| Task 8 | 16 | 0 | 0 | `run_task_8` |
+| Task 9 | 13 | 0 | 0 | `run_task_9` |
+| Task 10 | 9 | 0 | 0 | `run_task_10` |
+| Task 11 | 7 | 0 | 0 | `run_task_11` |
+| Task 12 | 16 | 2 | 0 | `run_task_12` |
+| Task 13 | 17 | 1 | 0 | `run_task_13` |
+| Task 14 | 16 | 3 | 15 | `run_task_14` |
+| Task 15 | 33 | 1 | 1 | `run_task_15` |
+| Task 16 | 11 | 1 | 1 | `run_task_16` |
+| Task 17 | 16 | 2 | 17 | `run_task_17` |
+| Task 18 | 12 | 0 | 0 | `run_task_18` |
+| Task 19 | 11 | 2 | 1 | `run_task_19` |
+| Task 20 | 19 | 2 | 1 | `run_task_20` |
+| Task 21 | 8 | 0 | 0 | `run_task_21` |
+| Task 22 | 27 | 3 | 0 | `run_task_22` |
+| Task 23 | 21 | 0 | 0 | `run_task_23` |
+| Task 24 | 36 | 1 | 0 | `run_task_24` |
+| Task 25 | 11 | 1 | 1 | `run_task_25` |
+| Task 26 | 17 | 2 | 0 | `run_task_26` |
+| Task 27 | 9 | 0 | 0 | `run_task_27` |
+| Task 28 | 16 | 0 | 0 | `run_task_28` |
+| Task 29 | 15 | 2 | 6 | `run_task_29` |
+| Task 30 | 19 | 1 | 0 | `run_task_30` |
+| Task 31 | 13 | 0 | 0 | `run_task_31` |
+| Task 32 | 6 | 0 | 0 | `run_task_32` |
+| Task 33 | 13 | 0 | 0 | `run_task_33` |
+| Task 34 | 16 | 0 | 0 | `run_task_34` |
+| Task 35 | 16 | 3 | 0 | `run_task_35` |
+| Task 36 | 71 | 2 | 2 | `run_task_36` |
+| **Total** | **661** | **32** | **47** | **740 callables** |
 
 **Shared namespace.** Executing the code cells top to bottom defines every callable in one namespace. `run_task_36` receives the stage callables through its `registry` argument, `{1: run_task_1, …, 35: run_task_35}`, so the notebook must be run **in full and in order** before use. No module is loaded from disk.
 
@@ -506,12 +503,12 @@ Outputs default to `MUFASA_STUDY_OUTPUT_DIR`, or `~/mufasa_study` when it is uns
 
 4. **Keep `config.yaml` in the working directory**, which is the notebook's own folder. `study_config.json` holds the same mapping and is the file `run_study_execution` loads.
 
-5. **Launch Jupyter** and open `multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb`:
+5. **Launch Jupyter** and open `multi_agent_symbolic_discovery_for_financial_fundamental_analysis.ipynb`:
    ```sh
    jupyter lab
    ```
 
-6. **Execute the code cells from *Import Essential Modules* (cell 19) through *Task 36: Top-Level Pipeline Orchestrator* (cell 58).** This defines every callable; no data is loaded and nothing is estimated. Execute cells 59–60 only when you intend to start a study run through `run_study_execution()`.
+6. **Execute the code cells from *Import Essential Modules* through *Task 36: Top-Level Pipeline Orchestrator*.** This defines every callable; no data is loaded and nothing is estimated. Execute the *Study Assembly* and *Study Execution* cells only when you intend to start a study run through `run_study_execution()`.
 
 ## Input Data Structure
 
@@ -554,7 +551,7 @@ The walkthrough below is the complete usage example from `usage_example.md`, rep
 3. It composes every argument of `run_task_36`.
 4. It calls the interface and reads back the three institutional assets.
 
-The example was verified against the working copy of the notebook, `multi_agent_symbolic_discovery_for_financial_fundamental_analysis.ipynb`. In this repository the same notebook is named `multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb`; read the example's notebook name accordingly.
+The example was executed against the repository's notebook, `multi_agent_symbolic_discovery_for_financial_fundamental_analysis.ipynb`; its **Verification record** states exactly what ran.
 
 ## **Usage Example**
 
@@ -2980,7 +2977,7 @@ print(smoke_result["manifest_path"], smoke_result["failure_ledger_path"])
 
 This example was executed on 2026-10-23 on Windows 11 with Python 3.13.9, NumPy 2.3.5, pandas 2.3.3 and PyYAML 6.0.3.
 
-- **Notebook as stored.** Every code cell of the notebook from *Import Essential Modules* (cell 19) through *Task 36: Top-Level Pipeline Orchestrator* (cell 58) was executed exactly as stored, with no patch applied at run time; cells 20 and 21 are Markdown. *Study Assembly* (cell 59) and the `run_study_execution()` cell were not executed.
+- **Notebook as stored.** Every code cell of the notebook from *Import Essential Modules* through *Task 36: Top-Level Pipeline Orchestrator* was executed exactly as stored, with no patch applied at run time. *Study Assembly* and the `run_study_execution()` cell were not executed.
 - **Example executed literally.** The code cells of Steps 1–4 were then executed verbatim, in order, in the same namespace, followed by the Step 4.2 smoke cell. No argument was overridden from outside.
 - **Formatting is behaviour-neutral.** The PEP-8 layout of the example code passes `flake8 --max-line-length=99`. It was checked to be AST-identical to the code that was executed and to generate identical panels.
 - **Smoke run (recorded output).** The Step 4.2 output above was recorded on the notebook before the quarter-key fix, on seed 11 under the smoke budgets of `make_smoke_configuration`. The driver returned `completed`, and the published status is `pipeline_verified_on_synthetic_data`. All 35 stages are recorded `completed`, no failure ledger was written, and the example cells took 20.7 minutes.
@@ -3070,7 +3067,7 @@ This example was executed on 2026-10-23 on Windows 11 with Python 3.13.9, NumPy 
 
 ```text
 multi_agent_symbolic_discovery_for_financial_fundamental_analysis/
-├── multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb   # 61-cell notebook: supporting definitions + Tasks 1-36
+├── multi_agent_symbolic_discovery_for_financial_fundamental_analysis.ipynb   # notebook: supporting definitions + Tasks 1-36
 ├── multi_agent_symbolic_discovery_for_financial_fundamental_analysis_ipo_main_1.png # Inputs-Processes-Outputs diagram
 ├── config.yaml                 # study configuration, version 1.1.0 (14 top-level blocks)
 ├── study_config.json           # the same configuration mapping as JSON (read by run_study_execution)
@@ -3174,4 +3171,4 @@ For the implementation itself:
 
 ---
 
-*This README was generated from the draft notebook `multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb` and follows best practices for research software documentation.*
+*This README was generated from the notebook `multi_agent_symbolic_discovery_for_financial_fundamental_analysis.ipynb` and follows best practices for research software documentation.*
