@@ -422,7 +422,13 @@
         "path": "pipeline.serving.model_revision",
         "tag": "[UNSPECIFIED IN MANUSCRIPT]",
         "decision": "recorded",
-        "justification": "Model revision of Qwen3-4B-Thinking is not published; it must be pinned to a 40-hex commit before a licensed run."
+        "justification": "Model revision of Qwen3-4B-Thinking is not published; it is pinned to the Hugging Face commit 768f209d9ea81521153ed38c47d515654e938aea of Qwen/Qwen3-4B-Thinking-2507 reported on 2026-10-23, to be re-verified before a licensed run."
+      },
+      {
+        "path": "pipeline.serving.model_id",
+        "tag": "[UNSPECIFIED IN MANUSCRIPT]",
+        "decision": "recorded",
+        "justification": "The paper names Qwen3-4B-Thinking; the public Hugging Face checkpoint of that name is Qwen/Qwen3-4B-Thinking-2507 (the un-suffixed identifier is not a public repository), served with vLLM 0.19.1, the newest release supporting Qwen3, Python 3.11 and CUDA 12.x."
       },
       {
         "path": "market_structure.study.index_ticker_map.FTSE_APAC_EX_JP",
@@ -1816,8 +1822,8 @@
       }
     ],
     "serving": {
-      "model_revision": "0000000000000000000000000000000000000000",
-      "model_id": "Qwen/Qwen3-4B-Thinking",
+      "model_revision": "768f209d9ea81521153ed38c47d515654e938aea",
+      "model_id": "Qwen/Qwen3-4B-Thinking-2507",
       "dry_run": false
     },
     "generator": "model",

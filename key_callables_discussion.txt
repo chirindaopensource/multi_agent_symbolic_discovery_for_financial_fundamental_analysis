@@ -175,7 +175,7 @@ $$
 ### Task 12 — `run_task_12`
 
 - **Inputs**: `model_revision`; keyword `model_id`, `run_id`, optional `container`, `dry_run` (default true), `scratch_dir`, `engine_factory`, `transport`, `per_role_seconds`, `n_iterations` 1, workers (5 specialist, 1 meta, 1 distiller), `max_new_tokens` 8192, `dtype`, `seed` 0, `smoke_prompt`, `clock`.
-- **Process**: pins the engine configuration; launches one server for seven role keys, applying the out-of-memory back-off once (factor 0.5, floor 1); asserts the engine-reported window against the pin; issues one smoke request per sampling profile and checks for truncation; builds and probes one callable per role; measures and evaluates the wall clock against the budget.
+- **Process**: pins the engine configuration; launches one server for seven role keys, applying the out-of-memory back-off once (factor 0.5, floor 1); asserts the engine-reported window against the pin; issues one smoke request per sampling profile and checks for truncation; builds and probes one callable per role, each of which strips a thinking model's reasoning from the reply text at its last `</think>` (`split_reasoning_task_12`), passing on the answer and keeping `raw_text` and `reasoning_chars` in the reply record; measures and evaluates the wall clock against the budget.
 - **Outputs**: `model_revision`, `container`, `config`, `handles`, `registry`, `scheduler`, `wall_clock`, `budget`, `smoke`, `artifacts`, `role_callables`, `model_id`, `run_id`, `dry_run`, `backoff_applied`, `probe_calls`, `register_entries`.
 - **Transformation**: a pinned checkpoint becomes role-isolated sampling callables, so one role's parameters cannot leak into another. A dry run constructs nothing and only projects the wall clock.
 - **Research role**: "We use Qwen3-4B-Thinking … for all agents, with a temperature of 0.7 for the agents and 0.3 for the memory components"; the 600-second baseline mirrors "∼10 mins per agent".
@@ -185,6 +185,7 @@ $$
 \tilde f^{(a)}\sim\pi_\theta\bigl(\cdot\mid p^{(a)};\,T=0.7\bigr),\qquad \mathbf{Z}\sim\pi_\theta\bigl(\cdot\mid p^{\mathrm{distil}};\,T=0.3\bigr),\qquad \mathrm{warn}\iff t_{\mathrm{role}}>3\times600\ \mathrm{s}.
 $$
 
+- **Served model and engine**: the declaration names `Qwen/Qwen3-4B-Thinking-2507` (the paper's Qwen3-4B-Thinking; the un-suffixed identifier is not a public repository) on vLLM 0.19.1, the newest release with Qwen3 support (≥ 0.8.5), `requires_python >=3.10,<3.14` and a CUDA 12.x build (torch 2.10.0 on the CUDA 12.8 runtime). The notebook serves through the offline engine's `generate`, whose text carries the reasoning inline, so the reasoning is removed at the role callable rather than by a server-side reasoning parser.
 - **Generation cap and seed**: the orchestrator's own defaults are 8,192 tokens and seed 0, so Task 22's serving stage passes `max_new_tokens=16384` (the paper's cap) and the registry's `vllm_sampler` seed for its single call (call index 0, the first plan seed); all replications share that one engine and sampler seed. Top-p 0.95, top-k 0 and repetition penalty 1.0 come from the study configuration as gap decisions.
 
 ### Task 13 — `run_task_13`
