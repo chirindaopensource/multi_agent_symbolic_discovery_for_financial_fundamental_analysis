@@ -2013,7 +2013,7 @@ pipeline.differential_evolution   {'population_multiplier': 15, 'generations_max
                                    'parameter_bounds': [-1000000.0, 1000000.0],
                                    'early_stop_patience': 20, 'early_stop_tolerance': 1e-06,
                                    'admissible_share_floor': 0.5}
-      pipeline.serving.model_id   Qwen/Qwen3-4B-Thinking
+      pipeline.serving.model_id   Qwen/Qwen3-4B-Thinking-2507
                evaluation.alpha   0.05
     reproducibility.seed_values   [11, 23, 41, 67, 101]
 ```
@@ -2351,41 +2351,41 @@ Output of the executed smoke cell (seed 11, synthetic panels, smoke budgets). Th
      classifications: (127, 4)
 completed -> pipeline_verified_on_synthetic_data
  task    callable                    role    status  n_calls    seconds                                 reason
-    1  run_task_1                  driver completed        1   0.280175                               executed
-    2  run_task_2                  driver completed        1   1.477954                               executed
-    3  run_task_3                  driver completed        1   1.446512                               executed
-    4  run_task_4                  driver completed        1   2.266095                               executed
-   22 run_task_22                  driver completed        1  35.853263                               executed
-    5  run_task_5          within_task_22 completed        0   0.000091                executed inside Task 22
-    6  run_task_6          within_task_22 completed        0   0.000031                executed inside Task 22
-    7  run_task_7          within_task_22 completed        0   0.000027                executed inside Task 22
-    8  run_task_8          within_task_22 completed        0   0.000021                executed inside Task 22
-    9  run_task_9          within_task_22 completed        0   0.000023                executed inside Task 22
-   10 run_task_10          within_task_22 completed        0   0.000020                executed inside Task 22
-   11 run_task_11          within_task_22 completed        0   0.000021                executed inside Task 22
-   12 run_task_12          within_task_22 completed        0   0.000021                executed inside Task 22
-   15 run_task_15          within_task_22 completed        0   0.000058                executed inside Task 22
-   13 run_task_13 collaborator_of_task_15 completed        0   0.000011 called inside Task 15's discovery loop
-   14 run_task_14 collaborator_of_task_15 completed        0   0.000021 called inside Task 15's discovery loop
+    1  run_task_1                  driver completed        1   0.016169                               executed
+    2  run_task_2                  driver completed        1   0.927685                               executed
+    3  run_task_3                  driver completed        1   1.235434                               executed
+    4  run_task_4                  driver completed        1   1.969206                               executed
+   22 run_task_22                  driver completed        1  23.562050                               executed
+    5  run_task_5          within_task_22 completed        0   0.000102                executed inside Task 22
+    6  run_task_6          within_task_22 completed        0   0.000034                executed inside Task 22
+    7  run_task_7          within_task_22 completed        0   0.000020                executed inside Task 22
+    8  run_task_8          within_task_22 completed        0   0.000016                executed inside Task 22
+    9  run_task_9          within_task_22 completed        0   0.000015                executed inside Task 22
+   10 run_task_10          within_task_22 completed        0   0.000014                executed inside Task 22
+   11 run_task_11          within_task_22 completed        0   0.000012                executed inside Task 22
+   12 run_task_12          within_task_22 completed        0   0.000013                executed inside Task 22
+   15 run_task_15          within_task_22 completed        0   0.000045                executed inside Task 22
+   13 run_task_13 collaborator_of_task_15 completed        0   0.000014 called inside Task 15's discovery loop
+   14 run_task_14 collaborator_of_task_15 completed        0   0.000008 called inside Task 15's discovery loop
    16 run_task_16 collaborator_of_task_15 completed        0   0.000006 called inside Task 15's discovery loop
-   17 run_task_17 collaborator_of_task_15 completed        0   0.000005 called inside Task 15's discovery loop
+   17 run_task_17 collaborator_of_task_15 completed        0   0.000007 called inside Task 15's discovery loop
    18 run_task_18 collaborator_of_task_15 completed        0   0.000005 called inside Task 15's discovery loop
    19 run_task_19 collaborator_of_task_15 completed        0   0.000005 called inside Task 15's discovery loop
-   20 run_task_20          within_task_22 completed        0   0.000024                executed inside Task 22
-   21 run_task_21          within_task_22 completed        0   0.000022                executed inside Task 22
-   23 run_task_23                  driver completed        1   7.493838                               executed
-   24 run_task_24                  driver completed        5   5.757943                               executed
-   25 run_task_25                  driver completed        1   4.822049                               executed
-   26 run_task_26                  driver completed        1   2.440786                               executed
-   27 run_task_27                  driver completed        1   5.352807                               executed
-   28 run_task_28                  driver completed        1  10.705338                               executed
-   29 run_task_29                  driver completed        1   4.598364                               executed
-   30 run_task_30                  driver completed        1 185.789695                               executed
-   31 run_task_31                  driver completed        1 160.598019                               executed
-   32 run_task_32                  driver completed        1  97.255489                               executed
-   33 run_task_33                  driver completed        1 248.503123                               executed
-   34 run_task_34                  driver completed        1 530.330185                               executed
-   35 run_task_35                  driver completed        1   3.098169                               executed
+   20 run_task_20          within_task_22 completed        0   0.000025                executed inside Task 22
+   21 run_task_21          within_task_22 completed        0   0.000023                executed inside Task 22
+   23 run_task_23                  driver completed        1 510.062009                               executed
+   24 run_task_24                  driver completed        5   3.758623                               executed
+   25 run_task_25                  driver completed        1   2.872834                               executed
+   26 run_task_26                  driver completed        1   1.749965                               executed
+   27 run_task_27                  driver completed        1   3.241105                               executed
+   28 run_task_28                  driver completed        1   5.996432                               executed
+   29 run_task_29                  driver completed        1   2.020191                               executed
+   30 run_task_30                  driver completed        1  98.418560                               executed
+   31 run_task_31                  driver completed        1  84.556907                               executed
+   32 run_task_32                  driver completed        1  44.141853                               executed
+   33 run_task_33                  driver completed        1 134.754778                               executed
+   34 run_task_34                  driver completed        1 208.814956                               executed
+   35 run_task_35                  driver completed        1   1.947863                               executed
 ```
 
 The diagnostics are expected and do not change the status:
@@ -2399,7 +2399,7 @@ The fitted equations of the five perspective agents in the same run, printed in 
 
 ```text
 expression asset : (0.0010193979256846555 * Revenue_ps)
-expression cashflow : ((-0.0032221505610975027) * NI_ps)
+expression cashflow : ((-0.0032221505610975022) * NI_ps)
 expression earnings : ((-0.0032225940300549157) * NI_ps)
 expression growth : ((-9.601220742308452e-07) * (Revenue_ps * ((-1075.4418052499834) + (SALES_REV_TURN_YOY / (-2.8617740056700844)))))
 expression quality : (0.7983762484376477 * (NI_ps * P_FCF))
@@ -2431,34 +2431,35 @@ print(smoke_result["outputs"][29]["paths"][first_seed]["table_2_common_support"]
 The first three `print` calls return the full expression, weight-matrix and reliability-profile objects (the weight matrix of this run has 44 rows, one per market × sector × regime cell, and 18 columns). They are long, so only the output of the last three calls is reproduced:
 
 ```text
-C:\Users\techuf02l\mufasa_runs\smoke\pipeline_manifest_task_36.json None
+/root/mufasa_runs/final/pipeline_manifest_task_36.json None
                      model    pooled  n_scored  common_pooled  n_common
-                    Fin-R1 38.023717      1051       3.090779       721
-                     Fino1 38.023717      1051       3.090779       721
-                    MUFASA  0.399505      1023       0.446701       721
-                 ddm_price  2.305945       773       2.412250       721
-          ev_ebit_baseline 84.009721      1021       2.864278       721
-        ev_ebitda_baseline 62.712744      1021       2.865142       721
-                fcfe_price  8.080611       773       8.482008       721
-                fcff_price  9.717675       773      10.229526       721
-                 funsearch  0.626416      1033       0.722240       721
-                   histgbm 23.486857      1051       6.249318       721
-                    llm_sr  0.328420      1033       0.365558       721
-naive_cross_sectional_mean 79.468930      1051      54.056229       721
-         naive_persistence  0.146033      1051       0.150735       721
-               naive_trend  0.359650      1036       0.199775       721
-                        nn 45.802176      1051      26.696895       721
-               pb_baseline 87.011558      1021       0.743272       721
-               pe_baseline 67.634203      1021       0.180284       721
-                        rf 13.876682      1051       1.132200       721
-C:\Users\techuf02l\mufasa_runs\smoke\task_29\seed_11\table_2_common_support.csv
+                    Fin-R1 38.023717      1051       1.933855       586
+                     Fino1 38.023717      1051       1.933855       586
+                    MUFASA  0.399268      1024       0.419185       586
+                 ddm_price  2.305945       773       2.829224       586
+          ev_ebit_baseline  0.230268       876       0.244627       586
+        ev_ebitda_baseline  0.230117       876       0.244359       586
+                fcfe_price  8.080611       773       9.666540       586
+                fcff_price  9.717675       773       9.151488       586
+                 funsearch  0.626416      1033       0.429721       586
+                   histgbm 23.486857      1051       4.352569       586
+                    llm_sr  0.328420      1033       0.292481       586
+naive_cross_sectional_mean 79.468930      1051      36.373641       586
+         naive_persistence  0.146033      1051       0.135492       586
+               naive_trend  0.359650      1036       0.193553       586
+                        nn 45.802176      1051      17.227522       586
+               pb_baseline 87.011558      1021       0.332344       586
+               pe_baseline 67.634203      1021       0.121042       586
+                        rf 13.866060      1051       0.887874       586
+/root/mufasa_runs/final/task_29/seed_11/table_2_common_support.csv
 ```
 
 How to read the table:
 
-- **`n_common` is 721 for every model.** That is the number of (quarter, firm) rows, summed over the five markets, that all 18 scored models cover. `pysr` is absent because its back-end is not installed in this environment (Task 24 records it as *unavailable*), and `fincon` and `finvision` are absent for the reason given above.
-- **`pooled` and `common_pooled` can differ by an order of magnitude.** Fin-R1 and Fino1 fall from 38.0 on their own 1,051 rows to 3.09 on the common rows, and `pe_baseline` from 67.6 to 0.18. Their largest errors sit on rows that some other model does not score. A ranking of models by `pooled` is therefore partly a ranking of coverage, which is why the common-support column is reported beside it.
-- **MUFASA scores 1,023 of 1,051 rows** (coverage 0.973), so its `pooled` figure is also an own-row figure. On the common rows it is 0.447.
+- **`n_common` is 586 for every model.** That is the number of (quarter, firm) rows, summed over the five markets, that all 18 scored models cover. `pysr` is absent because its back-end is not installed in this environment (Task 24 records it as *unavailable*), and `fincon` and `finvision` are absent for the reason given above.
+- **`pooled` and `common_pooled` can differ by an order of magnitude.** Fin-R1 and Fino1 fall from 38.0 on their own 1,051 rows to 1.93 on the common rows, and `pe_baseline` from 67.6 to 0.12. Their largest errors sit on rows that some other model does not score. A ranking of models by `pooled` is therefore partly a ranking of coverage, which is why the common-support column is reported beside it.
+- **The EV baselines score 876 rows.** Correction 11 bridges their enterprise value per share to the price by net debt per share. Where net debt per share reaches the enterprise value per share the implied price is not positive, so it is set missing and counted, never clipped: 753 of 5,343 panel rows for EV/EBIT, 581 of them Financials, whose debt is operating funding rather than financing and for which EV multiples are not the practitioner's tool. That is why the common support is 586 rows here rather than the 721 of the run before that correction.
+- **MUFASA scores 1,024 of 1,051 rows** (coverage 0.974), so its `pooled` figure is also an own-row figure. On the common rows it is 0.419.
 
 ### **Corrections made to the notebook**
 
@@ -2494,22 +2495,15 @@ A separate configuration correction was made in `config.yaml` and `study_config.
 
 ### **Verification record**
 
-This example was executed on 2026-10-23 on Windows 11 with Python 3.13.9, NumPy 2.3.5, pandas 2.3.3, SciPy 1.16.3, scikit-learn 1.7.2, statsmodels 0.14.5, matplotlib 3.10.6 and PyYAML 6.0.3. Every run below used `multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb` after all six corrections, unless it is marked otherwise.
+This example was last executed on 2026-10-23 on Linux (x86-64, glibc 2.39) with Python 3.13.16, NumPy 2.3.5, pandas 2.3.3, SciPy 1.16.3, scikit-learn 1.7.2, statsmodels 0.14.5, matplotlib 3.10.6 and PyYAML 6.0.3, installed from `requirements.txt`. Every run below used `multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb` after all twelve corrections, unless it is marked otherwise. An earlier record of the first six corrections, executed on Windows 11 with Python 3.13.9, is in this file's `git` history.
 
-- **Notebook executed as stored.** The notebook's 39 code cells, from the first cell through *Task 36: Top-Level Pipeline Orchestrator*, were executed exactly as stored. *Study Assembly* and *Study Execution*, the two cells after Task 36, were not executed.
-- **Example executed literally.** The code cells of Steps 1–4 were then executed verbatim, in order, in the same namespace. They were followed by the Step 4.2 smoke cell and the inspection cell. No argument was overridden from outside, and every output shown above is copied from that run.
-- **Formatting.** The example cells, concatenated in order, pass `flake8 --max-line-length=99` apart from two kinds of finding. One is undefined names that the notebook defines. The other is warnings created by joining separate cells into one file.
-- **Literal smoke run.** Run on seed 11 under the smoke budgets of `make_smoke_configuration`. The driver returned `completed`, and the published status is `pipeline_verified_on_synthetic_data`. All 35 stages are recorded `completed`, no failure ledger was written, and the example cells took 21.9 minutes.
-- **Independent repeats.** Two more runs used the same smoke budgets and seed 11, each in its own output directory.
-    - The first used calendar-aligned fiscal labels. It completed all 35 stages in 19.0 minutes with the same status.
-    - The second set `FISCAL_LABEL_STYLE = "vendor"`, which writes `"FY…"` fiscal labels and adds June filers and a fiscal-year change. This is the case that halted before the quarter-key corrections. It completed all 35 stages in 18.0 minutes with the same status. Every entry of its Task 27 table (`pooled`, `n_scored`, `common_pooled`, `n_common`) equals the calendar-label run's, so the label style no longer changes any score.
-- **Targeted checks of the corrections.**
-    - *Task 21.* A panel was built with one context present in training and two first seen in the test window. One of the new contexts has its sector in training; the other does not. Before the fix, MUFASA forecast 0 of the 12 held-out rows of the new contexts; after it, all 12. The first new context draws on its sector pool and the second on the market pool. The training context's loss is unchanged, and `test_only_cells` names both new contexts.
-    - *Task 27.* Model X covered four rows and model Y two of them. Model X's own-row MAPE is 0.30, and on the two common rows it is 0.10. Model Y's figure is 0.20 on both, with `n_common = 2`. These values match a hand calculation.
-    - *Task 29.* In the smoke runs, `table_2_common_support.csv` has one row per market plus the across-market row. Its values match Task 27's `common_pooled` and `n_common`, and the file is listed in Task 29's artefact manifest. `table_2.csv` and the headline `pooled` column are unchanged.
-    - *Task 6.* A point-in-time GICS history was built. It records a carrier as Telecommunication Services before 2018-09-28 and as Communication Services after, and a second firm moving from Information Technology to Communication Services on that date. Before the fix, Task 6 halted on the old name. After it, the carrier is *Communications* in 2016 and in 2019, and the second firm is *Technology* in 2016 and *Communications* in 2019.
-- **Losses unaffected where nothing changed.** In the smoke runs, the Task 21 change affects no row, because every test-window context of the synthetic panels also occurs in training. The forecast losses of every model are therefore identical to those of a run made before the Task 21 and Task 27 corrections.
-- **Not executed.** The Step 4.1 call at `config.yaml` scale was not run, nor was any licensed run. That call has five seeds and full budgets. No figure in this document is a result of the study.
+- **The harness.** `verification/run_usage_example.py` executes the notebook's code cells up to, not including, *Study Assembly*, then this file's Python code cells verbatim, in order, in the same namespace, skipping only Step 4.1. Its only overrides are `SMOKE_OUTPUT_DIR` (`--output-dir`) and, for the vendor run, `FISCAL_LABEL_STYLE` (`--label-style`), each applied after the cell that defines it. Every output shown above is copied from the final run below; the run directory is therefore `/root/mufasa_runs/final` rather than `SMOKE_OUTPUT_DIR`'s default.
+- **Final literal run.** Seed 11, smoke budgets of `make_smoke_configuration`, calendar fiscal labels. The driver returned `completed` and the published status is `pipeline_verified_on_synthetic_data`; all 35 stages are recorded `completed`, no failure ledger was written, and the example cells took 18.9 minutes (four runs shared four processor cores).
+- **Vendor-label run.** The same, with `FISCAL_LABEL_STYLE = "vendor"` (`"FY…"` labels, June filers and a fiscal-year change). It completed all 35 stages in 18.6 minutes with the same status, and every entry of its Task 27 table (`pooled`, `n_scored`, `common_pooled`, `n_common`) equals the calendar-label run's (`verification/compare_task27.py`: 0 of 108 rows differ).
+- **Against the run before corrections 7–12.** A run of the notebook of commit `9b184f7` in the same environment (10.9 minutes) differs from the final run only in the `pooled` and `n_scored` figures of `ev_ebit_baseline` and `ev_ebitda_baseline` (12 of 108 rows each), which correction 11 changes, and, because those two baselines now cover fewer rows, in every model's `common_pooled` and `n_common`. Each other correction was run on its own and left all 108 rows unchanged: the stand-in meta role proposes equal weights, so the coordinator's subset is every perspective and its start the uniform point; the synthetic panels carry one snapshot reference date, so no share-basis break is flagged; and no smoke cell's chosen start is feasible but unconverged.
+- **Platform.** The `MUFASA` (0.399268 on 1,024 rows) and `rf` (13.866060) figures, and the last digit of the cash-flow coefficient, differ from the earlier Windows record (0.399505 on 1,023 rows; 13.876682). The run before corrections 7–12 gives the same figures as the final run in this environment, so the difference is the platform's floating point, not a correction.
+- **Targeted checks.** Each prints `CHECK OK`: `check_task21_solver.py` (60 seeded difficult cells: 2 halted before correction 7 in this environment, 0 after, and 4 chosen starts are feasible but unconverged), `check_task21_coordinator_subset.py`, `check_task20_per_market.py`, `check_task7_share_basis.py`, `check_task25_ev_bridge.py` and `check_reasoning_strip.py`. The checks of the first six corrections are described in the earlier record.
+- **Not executed.** The Step 4.1 call at `config.yaml` scale was not run, nor was any licensed run, and vLLM was not installed. That call has five seeds and full budgets. No figure in this document is a result of the study.
 
 ### **Summary of the Execution Flow**
 
