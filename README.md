@@ -98,7 +98,7 @@ The design targets domains in which no single theory is correct, conditions shif
 
 ## Introduction
 
-This project implements the methodology of Koa, Orestav, Wu, Wooldridge and Huang (2026). Its core is the Jupyter notebook `multi_agent_symbolic_discovery_for_financial_fundamental_analysis.ipynb`. Its code defines **740 top-level callables: 661 functions, 32 classes and 47 methods**, counted with Python's `ast` module over top-level definitions and the methods of top-level classes (nested helper functions are not counted). The code is organised as a *Supporting Definitions* section followed by **36 tasks, Tasks 1–36**, each in its own cell. Task 36 holds the study interface, `run_task_36`.
+This project implements the methodology of Koa, Orestav, Wu, Wooldridge and Huang (2026). Its core is the Jupyter notebook `multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb`, the project's official notebook. Its code defines **740 top-level callables: 661 functions, 32 classes and 47 methods**, counted with Python's `ast` module over top-level definitions and the methods of top-level classes (nested helper functions are not counted). The code is organised as a *Supporting Definitions* section followed by **36 tasks, Tasks 1–36**, each in its own cell. Task 36 holds the study interface, `run_task_36`.
 
 **The problem.** Symbolic regression (SR) has worked well in the natural sciences, where the goal is to recover one stable governing equation. The paper argues that financial valuation is a structurally different class of symbolic discovery problem, with three defining characteristics:
 
@@ -136,7 +136,7 @@ The paper notes that these challenges compound across the stages of the agent se
 - **Coordinate across contexts**: meta-coordinator training (Algorithm 2) and SLSQP simplex weighting on (market, sector, regime) cells (Tasks 20–21).
 - **Orchestrate one MUFASA run per seed** and return the three institutional assets (Task 22).
 - **Reproduce the comparison set**: ML baselines under one preprocessing policy, PySR/FunSearch/LLM-SR, Fin-R1/Fino1 with the classical valuation models, FinCon/FinVision, and naive price-level benchmarks (Tasks 23–26).
-- **Evaluate and test**: MAPE under three aggregations, seven-family reliability profiles, Diebold–Mariano inference with Newey–West HAC, the HLN correction, a two-way clustered view and Benjamini–Hochberg control, and the comparative scorecard (Tasks 27–29).
+- **Evaluate and test**: MAPE under three aggregations plus a common-support comparison on the rows every model scores, seven-family reliability profiles, Diebold–Mariano inference with Newey–West HAC, the HLN correction, a two-way clustered view and Benjamini–Hochberg control, and the comparative scorecard (Tasks 27–29).
 - **Run the robustness programme**: the perspective ablation, the memory-regime ablation, the extended sensitivity grid, the shuffled-prior control and the cross-perspective communication variant (Tasks 30–34).
 - **Package and drive**: provenance-bound publication packaging with gate verification (Task 35), and the top-level driver `run_task_36`, which validates, orders, checkpoints and executes the 35 stages and decides the published study status (Task 36).
 
@@ -256,6 +256,8 @@ Performance is measured by MAPE. Task 27 computes three aggregations because the
 - **per-quarter** averaged;
 - **per-firm** averaged.
 
+Each variant averages a model's *own* scored rows, so two models with different coverage are measured on different rows. Task 27 therefore also reports `common_pooled`, the pooled MAPE on the rows of a market that every scored model covers, with its row count `n_common`. Task 29 publishes it beside Table 2 as `table_2_common_support.csv`. The common support is a reproduction addition with no counterpart in the paper; the headline `pooled` figure is unchanged.
+
 Significance uses the Diebold–Mariano test on the absolute-percentage-error loss differential $d_t$, with a Newey–West HAC long-run variance (Bartlett kernel) and Andrews' bandwidth over $T$ test quarters:
 
 $$
@@ -300,6 +302,8 @@ The diagram below illustrates the Inputs, Processes and Outputs (IPOs) of the im
   - a `not_completed` run raises `Task36NotCompletedError` with the full result attached.
 - **Point-in-time discipline.** As-originally-reported filings only, restatement auditing, the filing-date gate, survivorship-free membership intervals, a causal regime timeline, a forward-shifted target, and a per-market chronological 80/20 split with a one-quarter embargo and a 10 % validation carve-out.
 - **One quarter key throughout.** Every stage keys quarters on the calendar quarter (`cal_quarter`, else the calendar quarter of `fiscal_period_end`), never on fiscal-label text. Both calendar-style and vendor-style (`"FY2020Q2"`) labels complete the pipeline.
+- **Every held-out row receives a weight.** A test-window context that never occurs in training is declared to the weight registry and takes its sector pool, or the market pool. MUFASA therefore does not silently drop rows that every baseline is scored on.
+- **Like-for-like comparison.** Beside each model's own-row MAPE, Task 27 reports the MAPE on the common support, the rows every scored model covers, and Task 29 writes it as a market-by-model matrix.
 - **Grammar-checked, sandboxed execution.** Candidates are parsed against an operator whitelist (`+ - * / ^ log exp abs < > indicator`, at most 30 operators) and executed in a sandbox with timeout, NaN-tolerance and coverage audits. Every rejection becomes a structured, machine-parseable error.
 - **Token-budgeted prompts.** Each block of a prompt has its own budget:
   - specialist prompts: *PHILOSOPHY* 1,500, *PRIOR_EQUATION* 3,000, *LEARNINGS* 8,000 and *ERROR_FEEDBACK* 3,000 tokens;
@@ -320,7 +324,7 @@ Each task below names its orchestrator and the exact title of its notebook cell.
 3. **Task 3, Input Validation for Index, Membership, and Config** (`run_task_3`). Certifies the index registry and the ticker map (resolving the FTSE APAC ex-Japan symbol from candidates), deduplicates membership intervals and checks configuration consistency.
 4. **Task 4, Data Cleansing and Quality Filtering** (`run_task_4`). The original-filing snapshot assertion, restatement discipline, structural-zero audit, free-cash-flow sign audit, denominator policy and the Gate 0 quarantine.
 5. **Task 5, Point-in-Time Panel Construction** (`run_task_5`). Fiscal-to-calendar mapping, the filing-date gate and the membership gate, combined into `eligible_for_design_matrix`.
-6. **Task 6, Context Labelling and Causal Regime Dating** (`run_task_6`). Maps sectors to the paper's 11 labels, dates the causal and ex-post ±20 % regime timelines, and builds the context key and the cell occupancy.
+6. **Task 6, Context Labelling and Causal Regime Dating** (`run_task_6`). Maps sectors to the paper's 11 labels, dates the causal and ex-post ±20 % regime timelines, and builds the context key and the cell occupancy. The pre-September-2018 GICS name *Telecommunication Services* (sector code 50) maps to *Communications*, the same label as its successor *Communication Services*.
 7. **Task 7, Target Construction and Temporal Partitioning** (`run_task_7`). Applies the eligibility filter, builds the forward-shifted target, and makes the per-market 80/20 split with a one-quarter embargo and a 90/10 fit/validation carve-out, freezing every artefact by digest.
 8. **Task 8, Codebook and Per-Share Variable Construction** (`run_task_8`). Builds the per-share quotients, tangible book, equity and enterprise multiples and the denominator floor under one admissibility helper, plus the versioned codebook and symbol registry.
 9. **Task 9, Cross-Sectional and Sector Aggregates** (`run_task_9`). Market and sector medians, means and dispersion under frozen winsorisation bounds. A sector median requires at least 5 firms per sector-quarter, a market aggregate at least 50 firms per quarter.
@@ -335,15 +339,15 @@ Each task below names its orchestrator and the exact title of its notebook cell.
 18. **Task 18, Statistical Memory and Seven-Family Profiling** (`run_task_18`). The seven-family profile, a memory store keyed by canonical structure hash with a 500-record cap, and a JSONL ledger.
 19. **Task 19, Natural-Language Memory Distillation** (`run_task_19`). Eight-block distillation at temperature 0.3, with number grounding, rejection of causal phrases, resampling and memory-regime support.
 20. **Task 20, Meta-Coordinator Training** (`run_task_20`). Algorithm 2 per context cell, with sector-pool and market-pool escalation and the meta trajectory.
-21. **Task 21, SLSQP Weight Fitting** (`run_task_21`). Simplex weights per (market, sector, regime) cell from multiple starts. The frozen matrix is applied to held-out rows without refitting.
+21. **Task 21, SLSQP Weight Fitting** (`run_task_21`). Simplex weights per (market, sector, regime) cell from multiple starts. The frozen matrix is applied to held-out rows without refitting. A held-out context with no training rows is declared to the registry and takes its sector pool, or the market pool; such cells are listed in `test_only_cells`.
 22. **Task 22, Master Orchestrator Function** (`run_task_22`). Runs stages 5–12, 15, 20 and 21 once per seed with checkpoints and returns `MufasaRunArtifacts`.
 23. **Task 23, ML Baselines and Feature Policy Equalisation** (`run_task_23`). Random forest (500 trees), HistGBM (200 iterations) and a neural net (64 hidden units, 200 epochs), all under one frozen preprocessing policy.
 24. **Task 24, Symbolic Regression Baselines** (`run_task_24`). PySR (27 populations, 30 iterations, maximum size 30), FunSearch and LLM-SR, selected on validation and evaluated once on test.
 25. **Task 25, Financial LLM and Classical Valuation Baselines** (`run_task_25`). Fin-R1 and Fino1; sector-median P/E, EV/EBIT, EV/EBITDA and P/B; and single-stage Gordon DDM, FCFE and FCFF with an equity risk premium of 0.05.
 26. **Task 26, Agentic and Naive Price-Level Baselines** (`run_task_26`). FinCon and FinVision through declared adapters, plus persistence, cross-sectional-mean and trend benchmarks.
-27. **Task 27, Evaluation Metrics and Aggregation** (`run_task_27`). MAPE in its three variants, secondary metrics, row losses and reliability profiles.
+27. **Task 27, Evaluation Metrics and Aggregation** (`run_task_27`). MAPE in its three variants, the common-support MAPE (`common_pooled`, `n_common`) on the rows every scored model covers, secondary metrics, row losses and reliability profiles.
 28. **Task 28, Diebold-Mariano Statistical Inference** (`run_task_28`). Newey–West with HLN, the two-way clustered view and Benjamini–Hochberg control.
-29. **Task 29, Orchestrator Function for Comparative Evaluation** (`run_task_29`). The comparative scorecard, the counterparts of Tables 2 and 5, and Figures 5–8.
+29. **Task 29, Orchestrator Function for Comparative Evaluation** (`run_task_29`). The comparative scorecard, the counterparts of Tables 2 and 5, the common-support matrix `table_2_common_support.csv`, and Figures 5–8.
 30. **Task 30, Perspective Ablation Robustness Analysis** (`run_task_30`). Five variants (`SINGLE_PERSPECTIVE`, `EQUAL_WEIGHTS`, `NO_STATS_MEMORY`, `BEST_SINGLE_AGENT`, `FULL_MUFASA`) run through the real pipeline for every seed: the counterpart of Table 3.
 31. **Task 31, Orchestrator Function for Memory-Regime Ablation** (`run_task_31`). Twelve cells: three memory regimes (`BINARY_PASS_FAIL`, `MAPE_ONLY`, `FULL_STATISTICAL`) crossed with four strategies (`CONTEXT_LEARNED`, `EQUAL`, `BEST_SINGLE`, `SOFTMAX`).
 32. **Task 32, Memory-Regime Ablation Robustness Analysis** (`run_task_32`). The counterpart of Table 10, with the effect register, the cross-table check and the manuscript comparison.
@@ -470,12 +474,13 @@ Outputs default to `MUFASA_STUDY_OUTPUT_DIR`, or `~/mufasa_study` when it is uns
 
 ## Prerequisites
 
-- **Python 3.13.** The notebook's kernel metadata records Python 3.13.9, and the usage example was verified with Python 3.13.9, NumPy 2.3.5, pandas 2.3.3 and PyYAML 6.0.3. The configuration's infrastructure section declares Python 3.11 for a containerised study environment. The repository pins no versions.
+- **Python 3.13.** The notebook's kernel metadata records Python 3.13.9, and the usage example was verified with Python 3.13.9, NumPy 2.3.5, pandas 2.3.3, SciPy 1.16.3, scikit-learn 1.7.2, statsmodels 0.14.5, matplotlib 3.10.6 and PyYAML 6.0.3. `requirements.txt` pins exactly these versions, plus `notebook` 7.4.5 and `ipykernel` 6.31.0. The configuration's infrastructure section declares Python 3.11 for a containerised study environment.
 - **Core libraries** imported by the notebook: `numpy`, `pandas`, `scipy` (`scipy.stats`, `scipy.optimize.differential_evolution`, `scipy.optimize.minimize`), `scikit-learn` (`RandomForestRegressor`, `HistGradientBoostingRegressor`) and `matplotlib`.
 - **Optional at import, required for a licensed run:**
   - `sentence-transformers`: its import is guarded; without it, `embed_fn` must be injected;
   - `vllm`: imported lazily by Task 12; an absent library halts serving with `VllmServingError`;
   - `pysr`: imported lazily by Task 24; when absent, the PySR baseline is registered `unavailable` and nothing is substituted.
+- **Provenance only:** `statsmodels`, which the notebook never imports; Task 1 records its installed version.
 - **For the usage example only:** `PyYAML`, which reads `config.yaml`.
 - **Serving hardware for a licensed run:** the paper serves Qwen3-4B-Thinking with vLLM on NVIDIA RTX A5000 GPUs, at about 10 minutes per agent on each processing unit. It uses temperature 0.7 for the agents and 0.3 for the memory components, a 32,768-token context and a 16,384-token generation cap.
 - **Data access:** licensed Bloomberg fundamentals and FactSet macroeconomic series; Yahoo Finance index prices; index-membership histories with entry and exit dates; and GICS classification histories.
@@ -494,17 +499,19 @@ Outputs default to `MUFASA_STUDY_OUTPUT_DIR`, or `~/mufasa_study` when it is uns
    source .venv/bin/activate        # Windows PowerShell: .venv\Scripts\Activate.ps1
    ```
 
-3. **Install the packages:**
+3. **Install the pinned packages:**
    ```sh
-   pip install numpy pandas scipy scikit-learn matplotlib jupyter
-   pip install pyyaml
+   python -m pip install -r requirements.txt
+   ```
+   This installs the verified versions of the core stack, `statsmodels`, `PyYAML` and the Jupyter runtime, which is everything a synthetic run and the usage example need. A licensed run with real services also needs the optional packages, which `requirements.txt` lists commented out and unpinned because their versions were not verified:
+   ```sh
    pip install sentence-transformers pysr vllm
    ```
-   The second line is needed only for the usage example. The third line is needed only for a licensed run with real services. vLLM requires a supported GPU and CUDA stack, and PySR installs a Julia back-end on first use.
+   vLLM publishes Linux/CUDA builds only and must be resolved against the served model, and PySR installs a Julia back-end on first use.
 
 4. **Keep `config.yaml` in the working directory**, which is the notebook's own folder. `study_config.json` holds the same mapping and is the file `run_study_execution` loads.
 
-5. **Launch Jupyter** and open `multi_agent_symbolic_discovery_for_financial_fundamental_analysis.ipynb`:
+5. **Launch Jupyter** and open `multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb`:
    ```sh
    jupyter lab
    ```
@@ -550,19 +557,19 @@ The walkthrough below is the complete usage example from `usage_example.md`, rep
 1. It builds the five raw panels with a private, seeded PCG64 process.
 2. It reads `config.yaml` into the plain dictionary `config` and conforms the firm panel to its declared schema.
 3. It composes every argument of `run_task_36`.
-4. It calls the interface and reads back the three institutional assets.
+4. It calls the interface, reads back the three institutional assets and compares every model on the rows all of them score.
 
-The example was executed against the repository's notebook, `multi_agent_symbolic_discovery_for_financial_fundamental_analysis.ipynb`; its **Verification record** states exactly what ran.
+The example was executed against the repository's notebook, `multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb`. Its **Corrections made to the notebook** section lists the six defects fixed while building it, and its **Verification record** states exactly what ran.
 
 ## **Usage Example**
 
 This guide demonstrates the study interface `run_task_36` of the Python reproduction of *Self-Evolving Multi-Agent Symbolic Discovery for Financial Fundamental Analysis* (Kelvin J.L. Koa), the hierarchical multi-agent framework **MUFASA** (Multi-Agent Fundamental Analysis with Symbolic Adaptive learning). Python implementation author: **CS Chirinda**.
 
-The example proceeds in four steps. Step 1 fabricates the five raw panels the driver ingests: `fundamental_quarter` (L1, Bloomberg-style), `macro_quarter` (L2, FactSet-style), `index_daily` (L3, Yahoo-style), `index_membership` (L4a) and `classifications`. Step 2 reads the existing `config.yaml` into the plain dictionary `config` and conforms the firm panel to the schema that file declares. Step 3 composes every argument of `run_task_36`. Step 4 calls the interface and reads back its three institutional assets: the fitted closed-form equations, the context-indexed weight matrix and the per-hypothesis reliability profiles. Every code fence below was executed, in the order shown, against the notebook; the section **Verification record** states exactly what ran and what did not.
+The example proceeds in four steps. Step 1 fabricates the five raw panels the driver ingests: `fundamental_quarter` (L1, Bloomberg-style), `macro_quarter` (L2, FactSet-style), `index_daily` (L3, Yahoo-style), `index_membership` (L4a) and `classifications`. Step 2 reads the existing `config.yaml` into the plain dictionary `config` and conforms the firm panel to the schema that file declares. Step 3 composes every argument of `run_task_36`. Step 4 calls the interface and reads back its three institutional assets: the fitted closed-form equations, the context-indexed weight matrix and the per-hypothesis reliability profiles. Every code fence below was executed, in the order shown, against `multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb`; the section **Verification record** states exactly what ran and what did not.
 
 **Assumptions and execution requirements.**
 
-1. Every research callable and helper already lives in the **single Jupyter notebook** `multi_agent_symbolic_discovery_for_financial_fundamental_analysis.ipynb`. Execute its code cells in order, from the first cell (*Import Essential Modules*) through the cell headed **Task 36: Top-Level Pipeline Orchestrator**. Do **not** execute the notebook's own closing cells *Study Assembly* and *Study Execution*: they start a separate study run. Then append the example cells below. **No Python task-module folder (`.py` package) is imported or required**; every notebook name the example uses (`run_task_36`, `RAW_PANELS_TASK_36`, `STUDY_STATUSES_TASK_36`, `DATA_MODES_TASK_36`, `Task36NotCompletedError`, `collect_provenance_task_36`, `build_environment_task_36`, `STUDY_ENVIRONMENT_DECLARATION`, `standin_services_task_36` and `run_task_1` … `run_task_35`) is resolved from that notebook's global namespace.
+1. Every research callable and helper already lives in the **single Jupyter notebook** `multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb`, the project's official notebook. Execute its code cells in order, from the import cell under the heading *Import Essential Modules* through the cell headed **Task 36: Top-Level Pipeline Orchestrator**. Do **not** execute the notebook's own closing cells *Study Assembly* and *Study Execution*: they start a separate study run. Then append the example cells below. **No Python task-module folder (`.py` package) is imported or required**; every notebook name the example uses (`run_task_36`, `RAW_PANELS_TASK_36`, `STUDY_STATUSES_TASK_36`, `DATA_MODES_TASK_36`, `Task36NotCompletedError`, `collect_provenance_task_36`, `build_environment_task_36`, `STUDY_ENVIRONMENT_DECLARATION`, `standin_services_task_36` and `run_task_1` … `run_task_35`) is resolved from that notebook's global namespace.
 2. The working directory is the notebook's folder, and `config.yaml` already exists there. The example reads it and never modifies it. Its JSON twin, `study_config.json`, carries the same parameters and is what the notebook's *licensed* loader reads; this example uses the YAML file.
 3. The verification interpreter was Python 3.13.9 with NumPy 2.3.5, pandas 2.3.3 and PyYAML 6.0.3. The example-specific imports are NumPy, pandas and **PyYAML**.
 4. **Faker is not used.** The panels come from a private, seeded NumPy `PCG64` data-generating process (seed `20261023`), the functionally equivalent alternative the brief permits. Company names are built from a fixed stem list, and ISIN, CUSIP and SEDOL identifiers carry valid check digits, so no live security is impersonated by chance and every run is bit-for-bit reproducible.
@@ -623,7 +630,7 @@ The data-generating process is built to pass the same validators that a vendor e
 * **Accounting identities.** Trailing-twelve-month (TTM) flows are true sums of four quarterly flows, total assets equal liabilities plus equity, and free cash flow equals operating cash flow less capital expenditure.
 * **Prices and the target.** The period-end price is TTM EPS times a sector P/E times a persistent sentiment factor, so valuation has learnable structure. `target` is the next quarter's market capitalisation, shifted forward within each issuer, and is missing on each issuer's last quarter (125 rows).
 * **Structural zeros.** Banks, insurers, real-estate and similar industry groups (GICS 4010, 4030, 5510, 6010) report no cost of revenue or R&D, exactly as vendors leave those fields empty; `n_missing_fields` counts them (0.53 per row on average).
-* **Calendar-aligned fiscal labels.** `FISCAL_LABEL_STYLE = "calendar"` writes `fiscal_quarter_label` as `"2012Q1"` on calendar fiscal years. The generator also implements the vendor style (`FISCAL_LABEL_STYLE = "vendor"`: `"FY2020Q2"` labels, June filers and one fiscal-year change), which also completes the pipeline. Every stage keys quarters on the calendar quarter, never on the label's text.
+* **Calendar-aligned fiscal labels.** `FISCAL_LABEL_STYLE = "calendar"` writes `fiscal_quarter_label` as `"2012Q1"` on calendar fiscal years. The generator also implements the vendor style (`FISCAL_LABEL_STYLE = "vendor"`: `"FY2020Q2"` labels, June filers and one fiscal-year change), which also completes the pipeline. Every stage keys quarters on the calendar quarter, never on the label's text (see **Corrections made to the notebook**).
 
 | Panel | Shape | Keys and content |
 | --- | --- | --- |
@@ -2907,41 +2914,41 @@ Output of the executed smoke cell (seed 11, synthetic panels, smoke budgets). Th
      classifications: (127, 4)
 completed -> pipeline_verified_on_synthetic_data
  task    callable                    role    status  n_calls    seconds                                 reason
-    1  run_task_1                  driver completed        1   0.261910                               executed
-    2  run_task_2                  driver completed        1   1.503366                               executed
-    3  run_task_3                  driver completed        1   2.362138                               executed
-    4  run_task_4                  driver completed        1   2.978127                               executed
-   22 run_task_22                  driver completed        1  43.114763                               executed
-    5  run_task_5          within_task_22 completed        0   0.000097                executed inside Task 22
-    6  run_task_6          within_task_22 completed        0   0.000060                executed inside Task 22
-    7  run_task_7          within_task_22 completed        0   0.000053                executed inside Task 22
-    8  run_task_8          within_task_22 completed        0   0.000046                executed inside Task 22
-    9  run_task_9          within_task_22 completed        0   0.000047                executed inside Task 22
-   10 run_task_10          within_task_22 completed        0   0.000042                executed inside Task 22
-   11 run_task_11          within_task_22 completed        0   0.000048                executed inside Task 22
-   12 run_task_12          within_task_22 completed        0   0.000045                executed inside Task 22
-   15 run_task_15          within_task_22 completed        0   0.000095                executed inside Task 22
-   13 run_task_13 collaborator_of_task_15 completed        0   0.000022 called inside Task 15's discovery loop
-   14 run_task_14 collaborator_of_task_15 completed        0   0.000016 called inside Task 15's discovery loop
-   16 run_task_16 collaborator_of_task_15 completed        0   0.000012 called inside Task 15's discovery loop
-   17 run_task_17 collaborator_of_task_15 completed        0   0.000012 called inside Task 15's discovery loop
-   18 run_task_18 collaborator_of_task_15 completed        0   0.000011 called inside Task 15's discovery loop
-   19 run_task_19 collaborator_of_task_15 completed        0   0.000011 called inside Task 15's discovery loop
-   20 run_task_20          within_task_22 completed        0   0.000052                executed inside Task 22
-   21 run_task_21          within_task_22 completed        0   0.000069                executed inside Task 22
-   23 run_task_23                  driver completed        1   9.728605                               executed
-   24 run_task_24                  driver completed        5   6.036967                               executed
-   25 run_task_25                  driver completed        1   3.832185                               executed
-   26 run_task_26                  driver completed        1   2.720128                               executed
-   27 run_task_27                  driver completed        1   4.818873                               executed
-   28 run_task_28                  driver completed        1  12.194832                               executed
-   29 run_task_29                  driver completed        1   4.944880                               executed
-   30 run_task_30                  driver completed        1 192.032218                               executed
-   31 run_task_31                  driver completed        1 180.850637                               executed
-   32 run_task_32                  driver completed        1  99.109365                               executed
-   33 run_task_33                  driver completed        1 283.086748                               executed
-   34 run_task_34                  driver completed        1 385.824048                               executed
-   35 run_task_35                  driver completed        1   2.659355                               executed
+    1  run_task_1                  driver completed        1   0.280175                               executed
+    2  run_task_2                  driver completed        1   1.477954                               executed
+    3  run_task_3                  driver completed        1   1.446512                               executed
+    4  run_task_4                  driver completed        1   2.266095                               executed
+   22 run_task_22                  driver completed        1  35.853263                               executed
+    5  run_task_5          within_task_22 completed        0   0.000091                executed inside Task 22
+    6  run_task_6          within_task_22 completed        0   0.000031                executed inside Task 22
+    7  run_task_7          within_task_22 completed        0   0.000027                executed inside Task 22
+    8  run_task_8          within_task_22 completed        0   0.000021                executed inside Task 22
+    9  run_task_9          within_task_22 completed        0   0.000023                executed inside Task 22
+   10 run_task_10          within_task_22 completed        0   0.000020                executed inside Task 22
+   11 run_task_11          within_task_22 completed        0   0.000021                executed inside Task 22
+   12 run_task_12          within_task_22 completed        0   0.000021                executed inside Task 22
+   15 run_task_15          within_task_22 completed        0   0.000058                executed inside Task 22
+   13 run_task_13 collaborator_of_task_15 completed        0   0.000011 called inside Task 15's discovery loop
+   14 run_task_14 collaborator_of_task_15 completed        0   0.000021 called inside Task 15's discovery loop
+   16 run_task_16 collaborator_of_task_15 completed        0   0.000006 called inside Task 15's discovery loop
+   17 run_task_17 collaborator_of_task_15 completed        0   0.000005 called inside Task 15's discovery loop
+   18 run_task_18 collaborator_of_task_15 completed        0   0.000005 called inside Task 15's discovery loop
+   19 run_task_19 collaborator_of_task_15 completed        0   0.000005 called inside Task 15's discovery loop
+   20 run_task_20          within_task_22 completed        0   0.000024                executed inside Task 22
+   21 run_task_21          within_task_22 completed        0   0.000022                executed inside Task 22
+   23 run_task_23                  driver completed        1   7.493838                               executed
+   24 run_task_24                  driver completed        5   5.757943                               executed
+   25 run_task_25                  driver completed        1   4.822049                               executed
+   26 run_task_26                  driver completed        1   2.440786                               executed
+   27 run_task_27                  driver completed        1   5.352807                               executed
+   28 run_task_28                  driver completed        1  10.705338                               executed
+   29 run_task_29                  driver completed        1   4.598364                               executed
+   30 run_task_30                  driver completed        1 185.789695                               executed
+   31 run_task_31                  driver completed        1 160.598019                               executed
+   32 run_task_32                  driver completed        1  97.255489                               executed
+   33 run_task_33                  driver completed        1 248.503123                               executed
+   34 run_task_34                  driver completed        1 530.330185                               executed
+   35 run_task_35                  driver completed        1   3.098169                               executed
 ```
 
 The diagnostics are expected and do not change the status:
@@ -2951,7 +2958,7 @@ The diagnostics are expected and do not change the status:
 
 The records show the execution plan: driver stages 1–4, then Task 22, then 23–35. Task 22 runs stages 5–12, 15, 20 and 21 for each seed. Task 15 calls 13, 14 and 16–19 inside its discovery loop. Those inner stages therefore show `n_calls = 0` and almost no time of their own, because their time is counted inside Task 22.
 
-An excerpt of the assets the same run produced follows. It shows **pipeline output on synthetic data under smoke budgets**, not findings of the study.
+The fitted equations of the five perspective agents in the same run, printed in full by the next cell, are shown here on one line each. They are **pipeline output on synthetic data under smoke budgets**, not findings of the study.
 
 ```text
 expression asset : (0.0010193979256846555 * Revenue_ps)
@@ -2961,7 +2968,7 @@ expression growth : ((-9.601220742308452e-07) * (Revenue_ps * ((-1075.4418052499
 expression quality : (0.7983762484376477 * (NI_ps * P_FCF))
 ```
 
-Inspecting the assets of the first seed:
+Inspecting the assets of the first seed, and comparing every model on the same rows. Task 27's table carries, beside each model's MAPE on its own scored rows (`pooled`, `n_scored`), the MAPE on the common support (`common_pooled`, `n_common`): the rows of a market that every scored model covers. Task 29 writes the same comparison as a market-by-model matrix, `table_2_common_support.csv`, beside `table_2.csv`.
 
 ```python
 # Show the fitted closed-form equation of each perspective agent.
@@ -2972,31 +2979,99 @@ print(smoke_summary["weight_matrix"])
 print(smoke_summary["reliability_profiles"])
 # Locate the run manifest and, if written, the failure ledger.
 print(smoke_result["manifest_path"], smoke_result["failure_ledger_path"])
+# Read the first registry seed of the run.
+first_seed = smoke_result["seeds"][0]
+# Read Task 27's MAPE table of that seed.
+mape_table = smoke_result["outputs"][27]["metrics"][first_seed]["mape_variants"]
+# Keep each model's across-market row.
+across = mape_table.loc[mape_table["market"] == ACROSS_MARKETS_TASK_27]
+# Compare own-row MAPE with MAPE on the rows every model scores.
+print(across[["model", "pooled", "n_scored", "common_pooled", "n_common"]].to_string(index=False))
+# Locate Task 29's market-by-model matrix on the common support.
+print(smoke_result["outputs"][29]["paths"][first_seed]["table_2_common_support"])
 ```
+
+The first three `print` calls return the full expression, weight-matrix and reliability-profile objects (the weight matrix of this run has 44 rows, one per market × sector × regime cell, and 18 columns). They are long, so only the output of the last three calls is reproduced:
+
+```text
+C:\Users\techuf02l\mufasa_runs\smoke\pipeline_manifest_task_36.json None
+                     model    pooled  n_scored  common_pooled  n_common
+                    Fin-R1 38.023717      1051       3.090779       721
+                     Fino1 38.023717      1051       3.090779       721
+                    MUFASA  0.399505      1023       0.446701       721
+                 ddm_price  2.305945       773       2.412250       721
+          ev_ebit_baseline 84.009721      1021       2.864278       721
+        ev_ebitda_baseline 62.712744      1021       2.865142       721
+                fcfe_price  8.080611       773       8.482008       721
+                fcff_price  9.717675       773      10.229526       721
+                 funsearch  0.626416      1033       0.722240       721
+                   histgbm 23.486857      1051       6.249318       721
+                    llm_sr  0.328420      1033       0.365558       721
+naive_cross_sectional_mean 79.468930      1051      54.056229       721
+         naive_persistence  0.146033      1051       0.150735       721
+               naive_trend  0.359650      1036       0.199775       721
+                        nn 45.802176      1051      26.696895       721
+               pb_baseline 87.011558      1021       0.743272       721
+               pe_baseline 67.634203      1021       0.180284       721
+                        rf 13.876682      1051       1.132200       721
+C:\Users\techuf02l\mufasa_runs\smoke\task_29\seed_11\table_2_common_support.csv
+```
+
+How to read the table:
+
+- **`n_common` is 721 for every model.** That is the number of (quarter, firm) rows, summed over the five markets, that all 18 scored models cover. `pysr` is absent because its back-end is not installed in this environment (Task 24 records it as *unavailable*), and `fincon` and `finvision` are absent for the reason given above.
+- **`pooled` and `common_pooled` can differ by an order of magnitude.** Fin-R1 and Fino1 fall from 38.0 on their own 1,051 rows to 3.09 on the common rows, and `pe_baseline` from 67.6 to 0.18. Their largest errors sit on rows that some other model does not score. A ranking of models by `pooled` is therefore partly a ranking of coverage, which is why the common-support column is reported beside it.
+- **MUFASA scores 1,023 of 1,051 rows** (coverage 0.973), so its `pooled` figure is also an own-row figure. On the common rows it is 0.447.
+
+### **Corrections made to the notebook**
+
+Building and auditing this example exposed six defects. Each one is fixed in the notebook, and the copy taken before each fix is kept in a dated `backup_*` folder.
+
+**Quarter keys (2026-10-23; pre-fix notebook in `backup_20261023_quarter_key_fix/`).** With vendor fiscal labels such as `"FY2020Q2"`, June filers or a fiscal-year change, each of the following stopped the pipeline. The fixes adopt one quarter key throughout: the **calendar quarter**. That is `cal_quarter` when it parses, and otherwise the calendar quarter that contains `fiscal_period_end`. A fiscal label is never used as a key, because issuers with different fiscal-year ends share one label.
+
+1. **Task 7, validation carve (`carve_validation_task_7`).** The carve ordered each market's keys on the calendar axis but matched rows by the text of `fiscal_quarter_label`. With `"FY…"` labels no row matched, the validation slice was empty, and Task 9 stopped with *no finite winsor bounds*. Rows are now matched through `_axis_quarter_keys_task_7`, the same key the ordering uses.
+2. **Task 26, naive baselines (`build_naive_benchmarks_task_26`).** When `cal_quarter` was missing, as on fiscal-year-change rows, the key fell back to parsing the fiscal label as a calendar quarter, which produced duplicate keys. The order of precedence is now `cal_quarter`, then the calendar quarter of `fiscal_period_end`, then the label.
+3. **Tasks 23 to 29, one evaluation key (Task 36 wiring).** MUFASA (Task 22) and the language-model baselines (Task 25) keyed their predictions on `cal_quarter`. The actuals and the ML, symbolic and naive baselines (Tasks 23, 24 and 26) keyed theirs on the fiscal label, so Task 27 stopped with *no matched prediction row*. `_evaluation_quarters_task_36` now gives every one of them the calendar-quarter key, and the Gate 6 check that test quarters follow training quarters orders by the same key.
+
+**Coverage and comparability (2026-10-23; pre-fix copies in `backup_20261023_fix_b_c/` and `backup_20261023_task6_task29_usage/`).**
+
+4. **Task 21, contexts first seen in the test window (`run_task_21`).** The weight registry held only training contexts, so a held-out row whose sector × regime never occurred in training received no weight and no MUFASA forecast. Such rows were silently left out of MUFASA's score while every baseline was scored on them. Every held-out context is now declared to the registry. One with no training rows takes its sector pool, or the market pool when its sector is absent from training or below `min_firm_quarters`. Contexts seen in training are unaffected, and the cells concerned are listed in the result's `test_only_cells`.
+5. **Tasks 27 and 29, comparison on common rows.** Each MAPE variant averages a model's *own* scored rows, so models with different coverage were compared on different rows.
+    - Task 27 now also reports `common_pooled` and `n_common`: the pooled MAPE on the rows of a market that every scored model covers.
+    - Task 29 carries the new figure as a fourth variant in its long table (with `n_rows`, the rows each figure averages) and writes `table_2_common_support.csv`.
+    - The three original variants, the headline `pooled` and `table_2.csv` are unchanged. The Diebold–Mariano tests of Task 28 already used jointly covered rows only.
+6. **Task 6, the pre-2018 GICS sector name (`build_sector_mapping_task_6`).** On 2018-09-28 GICS renamed Telecommunication Services (sector code 50) to Communication Services under the same code. A point-in-time classification history therefore carries the old name for earlier vintages. That name was outside the eleven paper labels, so Task 6 halted. It now maps to *Communications*, the same label as its successor, and the same mapping is recorded under `gics_to_paper_mapping` in `config.yaml` and `study_config.json`. Firms that moved into the sector from Information Technology or Consumer Discretionary in 2018 keep their earlier sector for earlier quarters, as their as-of vintages state.
+
+A separate configuration correction was made in `config.yaml` and `study_config.json`: Task 23 rejects an `early_stopping` key under `baselines.ml.histgbm`, so that key was removed.
 
 ### **Verification record**
 
-This example was executed on 2026-10-23 on Windows 11 with Python 3.13.9, NumPy 2.3.5, pandas 2.3.3 and PyYAML 6.0.3.
+This example was executed on 2026-10-23 on Windows 11 with Python 3.13.9, NumPy 2.3.5, pandas 2.3.3, SciPy 1.16.3, scikit-learn 1.7.2, statsmodels 0.14.5, matplotlib 3.10.6 and PyYAML 6.0.3. Every run below used `multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb` after all six corrections, unless it is marked otherwise.
 
-- **Notebook as stored.** Every code cell of the notebook from *Import Essential Modules* through *Task 36: Top-Level Pipeline Orchestrator* was executed exactly as stored, with no patch applied at run time. *Study Assembly* and the `run_study_execution()` cell were not executed.
-- **Example executed literally.** The code cells of Steps 1–4 were then executed verbatim, in order, in the same namespace, followed by the Step 4.2 smoke cell. No argument was overridden from outside.
-- **Formatting is behaviour-neutral.** The PEP-8 layout of the example code passes `flake8 --max-line-length=99`. It was checked to be AST-identical to the code that was executed and to generate identical panels.
-- **Smoke run (recorded output).** The Step 4.2 output above was recorded on the notebook before the quarter-key fix, on seed 11 under the smoke budgets of `make_smoke_configuration`. The driver returned `completed`, and the published status is `pipeline_verified_on_synthetic_data`. All 35 stages are recorded `completed`, no failure ledger was written, and the example cells took 20.7 minutes.
-- **Independent repeat.** A second run before the fix, with the same smoke budgets and seed 11 went to a separate output directory. It also returned `completed` for all 35 stages, in 18.7 minutes. That directory held checkpoints from an earlier attempt, so Tasks 28 and 29 were recorded `resumed` (their checkpoint fingerprints matched) rather than recomputed.
-- **After the quarter-key fix.** Two further runs on the fixed notebook, with the smoke budgets and seed 11, each went to a fresh output directory, and both returned `completed` with `pipeline_verified_on_synthetic_data` and all 35 stages `completed`.
-    - **Calendar labels** (21.2 minutes): same stage statuses and the same fitted equations as the recorded output above; only stage timings differ.
-    - **Vendor labels** (`FISCAL_LABEL_STYLE = "vendor"`, 21.3 minutes; every label `"FY…"`, with a fiscal-year change): all 18 models were scored in Task 27, and the 17,885 per-row losses are identical to those of the calendar-label run.
-- **Not executed.** The Step 4.1 call at `config.yaml` scale (five seeds, full budgets) was not run, and no licensed run was attempted. No figure in this document is a result of the study.
+- **Notebook executed as stored.** The notebook's 39 code cells, from the first cell through *Task 36: Top-Level Pipeline Orchestrator*, were executed exactly as stored. *Study Assembly* and *Study Execution*, the two cells after Task 36, were not executed.
+- **Example executed literally.** The code cells of Steps 1–4 were then executed verbatim, in order, in the same namespace. They were followed by the Step 4.2 smoke cell and the inspection cell. No argument was overridden from outside, and every output shown above is copied from that run.
+- **Formatting.** The example cells, concatenated in order, pass `flake8 --max-line-length=99` apart from two kinds of finding. One is undefined names that the notebook defines. The other is warnings created by joining separate cells into one file.
+- **Literal smoke run.** Run on seed 11 under the smoke budgets of `make_smoke_configuration`. The driver returned `completed`, and the published status is `pipeline_verified_on_synthetic_data`. All 35 stages are recorded `completed`, no failure ledger was written, and the example cells took 21.9 minutes.
+- **Independent repeats.** Two more runs used the same smoke budgets and seed 11, each in its own output directory.
+    - The first used calendar-aligned fiscal labels. It completed all 35 stages in 19.0 minutes with the same status.
+    - The second set `FISCAL_LABEL_STYLE = "vendor"`, which writes `"FY…"` fiscal labels and adds June filers and a fiscal-year change. This is the case that halted before the quarter-key corrections. It completed all 35 stages in 18.0 minutes with the same status. Every entry of its Task 27 table (`pooled`, `n_scored`, `common_pooled`, `n_common`) equals the calendar-label run's, so the label style no longer changes any score.
+- **Targeted checks of the corrections.**
+    - *Task 21.* A panel was built with one context present in training and two first seen in the test window. One of the new contexts has its sector in training; the other does not. Before the fix, MUFASA forecast 0 of the 12 held-out rows of the new contexts; after it, all 12. The first new context draws on its sector pool and the second on the market pool. The training context's loss is unchanged, and `test_only_cells` names both new contexts.
+    - *Task 27.* Model X covered four rows and model Y two of them. Model X's own-row MAPE is 0.30, and on the two common rows it is 0.10. Model Y's figure is 0.20 on both, with `n_common = 2`. These values match a hand calculation.
+    - *Task 29.* In the smoke runs, `table_2_common_support.csv` has one row per market plus the across-market row. Its values match Task 27's `common_pooled` and `n_common`, and the file is listed in Task 29's artefact manifest. `table_2.csv` and the headline `pooled` column are unchanged.
+    - *Task 6.* A point-in-time GICS history was built. It records a carrier as Telecommunication Services before 2018-09-28 and as Communication Services after, and a second firm moving from Information Technology to Communication Services on that date. Before the fix, Task 6 halted on the old name. After it, the carrier is *Communications* in 2016 and in 2019, and the second firm is *Technology* in 2016 and *Communications* in 2019.
+- **Losses unaffected where nothing changed.** In the smoke runs, the Task 21 change affects no row, because every test-window context of the synthetic panels also occurs in training. The forecast losses of every model are therefore identical to those of a run made before the Task 21 and Task 27 corrections.
+- **Not executed.** The Step 4.1 call at `config.yaml` scale was not run, nor was any licensed run. That call has five seeds and full budgets. No figure in this document is a result of the study.
 
 ### **Summary of the Execution Flow**
 
-1. **Notebook namespace.** Execute the notebook's code cells from *Import Essential Modules* through *Task 36: Top-Level Pipeline Orchestrator*, and append the example cells below them. Nothing is imported from a `.py` folder.
+1. **Notebook namespace.** Execute the code cells of `multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb` from *Import Essential Modules* through *Task 36: Top-Level Pipeline Orchestrator*, and append the example cells below them. Nothing is imported from a `.py` folder.
 2. **Raw panels.** A seeded `PCG64` process (Faker's role) generates the five panels `run_task_36` requires: 5,760 firm-quarters with valid identifiers, TTM sums, the balance-sheet identity, structural zeros and a forward market-capitalisation target, plus macro, index, membership and GICS-history panels. Every date is `datetime64[ns]` and every fiscal label is calendar-aligned.
 3. **Configuration.** `load_study_configuration` reads `config.yaml` into `config`, requires the twelve operational blocks and refuses a stored `environment`. `conform_panels_to_schema` imposes the declared 79-column order and dtypes and checks that the macro series and markets are covered.
 4. **Arguments.** `prepare_run_inputs` reads the five seeds `[11, 23, 41, 67, 101]`, measures provenance, composes Task 1's environment, builds the registry `{1: run_task_1, …, 35: run_task_35}` and selects the declared stand-in services for `data_mode="synthetic"`.
 5. **Interface call.** `execute_study` calls `run_task_36(config, panels, output_dir, registry=…, seeds=…, services=…, skip=(), data_mode="synthetic", resume=True)`. The driver validates everything first, orders the 35 stages by dependency, runs driver stages 1–4 and 22–35 (Task 22 running stages 5–12, 15, 20 and 21 per seed), checkpoints, writes the manifest and decides the status.
 6. **Outcome handling.** A `not_completed` run raises `Task36NotCompletedError` after its manifest and failure ledger are written; `execute_study` returns the attached `.result`, so every stage record remains inspectable.
-7. **Assets.** `summarise_study_result` tabulates the stage records, maps (status, data mode) to the published status and extracts, from `outputs[22]["runs"][seed]`, the fitted closed-form equations, the context-indexed weight matrix and the seven-family reliability profiles.
+7. **Assets.** `summarise_study_result` tabulates the stage records, maps (status, data mode) to the published status and extracts, from `outputs[22]["runs"][seed]`, the fitted closed-form equations, the context-indexed weight matrix and the seven-family reliability profiles. Task 27's table and Task 29's `table_2_common_support.csv` compare every model on the same rows.
 8. **Scale.** The `config.yaml` call (Step 4.1) is the study run and takes days. The smoke call (Step 4.2) shrinks only search and training budgets and runs a single seed, and its output verifies wiring, never results.
 9. **Honesty of status.** Synthetic panels can at best earn `pipeline_verified_on_synthetic_data`. `study_complete` requires the licensed extract (`data_mode="licensed"`), and the operator's served model and services. Fiscal labels of any style are accepted, because every stage keys quarters on the calendar quarter.
 
@@ -3047,12 +3122,14 @@ This example was executed on 2026-10-23 on Windows 11 with Python 3.13.9, NumPy 
 ├── task_22/   per-seed scopes holding Tasks 5–21: point-in-time panel, regime timeline,
 │              split boundaries, codebook, aggregates, semantic index, prompt logs,
 │              trajectories, expressions.json, losses.json, profiles.json, ledger.jsonl,
-│              cell_registry.json, per_cell_weights.json, z_meta.json
+│              cell_registry.json, per_cell_weights.json, z_meta.json,
+│              Task 21 summary (with test_only_cells)
 ├── task_23/ … task_26/                   # baseline predictions, manifests and registrations
-├── task_27/   mape_variants_task_27.csv, secondary_metrics_task_27.csv,
+├── task_27/   mape_variants_task_27.csv (incl. common_pooled, n_common), secondary_metrics_task_27.csv,
 │              row_losses_task_27.csv, reliability_profiles_task_27.json
 ├── task_28/   significance_task_28.csv, inference_task_28.json, pooled_diagnostic_task_28.csv
-├── task_29/   table_2.csv, table_5.csv, coverage.csv, reliability_profiles.csv, figures
+├── task_29/   table_2.csv, table_2_common_support.csv, table_5.csv, coverage.csv,
+│              reliability_profiles.csv, secondary_metrics.csv, artefact_manifest.json, figures
 ├── task_30/ … task_34/                   # ablation, memory-regime, sensitivity and robustness tables
 └── task_35/   expression_registry.json, weight_matrix.json, learnings_history.json,
                publication_package.json   (or gate_failure_record_task_35.json)
@@ -3068,10 +3145,11 @@ This example was executed on 2026-10-23 on Windows 11 with Python 3.13.9, NumPy 
 
 ```text
 multi_agent_symbolic_discovery_for_financial_fundamental_analysis/
-├── multi_agent_symbolic_discovery_for_financial_fundamental_analysis.ipynb   # notebook: supporting definitions + Tasks 1-36
+├── multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb   # official notebook: supporting definitions + Tasks 1-36
 ├── multi_agent_symbolic_discovery_for_financial_fundamental_analysis_ipo_main_1.png # Inputs-Processes-Outputs diagram
 ├── config.yaml                 # study configuration, version 1.1.0 (14 top-level blocks)
 ├── study_config.json           # the same configuration mapping as JSON (read by run_study_execution)
+├── requirements.txt            # pinned versions of the verified environment (optional services unpinned)
 ├── usage_example.md            # the verified usage example (also embedded in the notebook's Draft 1 section)
 ├── key_callables_discussion.txt  # IPOs of the 36 key callables (also embedded in the notebook's Draft 1 section)
 ├── inputs_discussion.txt       # discussion of the study inputs
@@ -3131,7 +3209,7 @@ Contributions are welcome. Please follow the conventions of the notebook:
 4. **Improve the classical baselines.** Replace the single-stage Gordon parameterisation of DDM, FCFE and FCFF with multi-stage or adaptive assumptions, as the paper's limitations section suggests, while keeping the single-stage version as the reference.
 5. **Learn the agent and context composition.** The number of perspectives and the (sector, regime) contexts are fixed by design. Add perspectives such as macro, dividend or momentum, or richer contexts, and learn the composition adaptively.
 6. **Add news and sentiment signals** for Communications and Consumer Discretionary, where the paper attributes larger tail errors to forward-looking expectations that fundamentals do not capture.
-7. **Pin versions.** Publish a pinned `requirements.lock` and container image, as `study_specification.infrastructure` declares, since the repository currently records no package versions.
+7. **Pin the full environment.** `requirements.txt` pins the verified versions of the synthetic-run stack only. Publish a complete `requirements.lock` and container image, as `study_specification.infrastructure` declares, including verified versions of `sentence-transformers`, `vllm` and `pysr` for the licensed run.
 
 ## License
 
@@ -3172,4 +3250,4 @@ For the implementation itself:
 
 ---
 
-*This README was generated from the notebook `multi_agent_symbolic_discovery_for_financial_fundamental_analysis.ipynb` and follows best practices for research software documentation.*
+*This README was generated from the notebook `multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb` and follows best practices for research software documentation.*
