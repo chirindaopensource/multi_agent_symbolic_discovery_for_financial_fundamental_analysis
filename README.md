@@ -98,7 +98,7 @@ The design targets domains in which no single theory is correct, conditions shif
 
 ## Introduction
 
-This project implements the methodology of Koa, Orestav, Wu, Wooldridge and Huang (2026). Its core is the Jupyter notebook `multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb`, the project's official notebook. Its code defines **740 top-level callables: 661 functions, 32 classes and 47 methods**, counted with Python's `ast` module over top-level definitions and the methods of top-level classes (nested helper functions are not counted). The code is organised as a *Supporting Definitions* section followed by **36 tasks, Tasks 1–36**, each in its own cell. Task 36 holds the study interface, `run_task_36`.
+This project implements the methodology of Koa, Orestav, Wu, Wooldridge and Huang (2026). Its core is the Jupyter notebook `multi_agent_symbolic_discovery_for_financial_fundamental_analysis_draft.ipynb`, the project's official notebook. Its code defines **742 top-level callables: 663 functions, 32 classes and 47 methods**, counted with Python's `ast` module over top-level definitions and the methods of top-level classes (nested helper functions are not counted). The code is organised as a *Supporting Definitions* section followed by **36 tasks, Tasks 1–36**, each in its own cell. Task 36 holds the study interface, `run_task_36`.
 
 **The problem.** Symbolic regression (SR) has worked well in the natural sciences, where the goal is to recover one stable governing equation. The paper argues that financial valuation is a structurally different class of symbolic discovery problem, with three defining characteristics:
 
@@ -111,7 +111,7 @@ The paper notes that these challenges compound across the stages of the agent se
 **The answer.** MUFASA addresses each challenge with one architectural element:
 
 - **Disentangled symbolic discovery:** five specialist LLM agents, each constrained to one valuation philosophy, propose closed-form expressions, retrieve variables through a semantic tool, execute candidates as code, and have their coefficients fitted by differential evolution.
-- **Hierarchical-level reasoning:** a meta-coordinator conditions on the context $C(i,t)=(s(i),r(t))$, sector and bull/bear regime, and produces SLSQP-fitted weights over the specialist forecasts.
+- **Hierarchical-level reasoning:** a meta-coordinator, run per market, conditions on the context $C(i,t)=(s(i),r(t))$, sector and bull/bear regime, selects a subset of the specialists and proposes their starting weights, from which SLSQP fits the weights of the specialist forecasts over that subset.
 - **Statistical performance memory:** each agent stores every hypothesis with a seven-family statistical summary and distils it into natural-language learnings that steer the next generation.
 
 **Headline results reported in the paper** (Table 2, MAPE on the held-out 20 % of quarters; lower is better):
@@ -145,8 +145,9 @@ The paper notes that these challenges compound across the stages of the agent se
 > - The notebook is **define-only** up to the cell *Task 36: Top-Level Pipeline Orchestrator*. Its two closing cells, *Study Assembly* and *Study Execution*, start a separate study run through `run_study_execution()`; do not execute them when following the usage example.
 > - The **only executed runs** are synthetic smoke runs: one seed (11), synthetic panels, and budgets shrunk by `make_smoke_configuration`. They returned `completed` for all 35 stages, which gives the published status `pipeline_verified_on_synthetic_data`. This verifies the wiring; it is **not** a study result.
 > - **No licensed run has been executed**, and no number in this README was produced by this code. Every reported number comes from the manuscript.
-> - A licensed run needs the operator's served model (`Qwen/Qwen3-4B-Thinking`), a sentence encoder, a tokenizer and the baseline clients. `config.yaml` stores `pipeline.serving.model_revision` as forty zeros, a placeholder that **must be pinned** to a 40-hex commit before such a run. The Yahoo Finance symbol for FTSE Asia Pacific ex-Japan is not published and must be verified.
-> - The paper leaves many settings unpublished. They are recorded as `[UNSPECIFIED IN MANUSCRIPT]` reproduction decisions in `market_structure.gap_register` (18 entries). Examples are the iteration budgets, the differential-evolution settings, the seeds, the retrieval depth, the memory cap and the equity risk premium.
+> - A licensed run needs the operator's served model (`Qwen/Qwen3-4B-Thinking-2507`, the public checkpoint of the paper's Qwen3-4B-Thinking, declared on vLLM 0.19.1), a sentence encoder, a tokenizer and the baseline clients. `config.yaml` pins `pipeline.serving.model_revision` to the commit `768f209d9ea81521153ed38c47d515654e938aea` reported for that checkpoint on 2026-10-23; it was not re-verified from the environment that made this change, so **re-verify it** against the served checkpoint before such a run. The Yahoo Finance symbol for FTSE Asia Pacific ex-Japan is not published and must be verified.
+> - The paper leaves many settings unpublished. They are recorded as `[UNSPECIFIED IN MANUSCRIPT]` reproduction decisions in `market_structure.gap_register` (20 entries). Examples are the iteration budgets, the differential-evolution settings, the seeds, the retrieval depth, the memory cap, the equity risk premium, the EV-to-price bridge of the EV-multiple baselines and the served checkpoint.
+> - **The models are not trained or selected on one rule.** Random forest and HistGBM use scikit-learn's default squared-error loss, and the neural network minimises the mean squared error on a standardised target, while MUFASA and the symbolic baselines minimise MAPE, the evaluation metric. The baselines are selected on the validation slice, while MUFASA's incumbent expression is selected on training MAPE, as Algorithm 1 scores candidates on the training data. The paper specifies neither choice, so neither is a deviation, but both bear on how the comparison is read.
 
 ## Theoretical Background
 
@@ -203,7 +204,7 @@ $$
 \mathcal L^{\text{meta}}=\mathrm{MAPE}\big(\hat y_{i,t+1},\,y_{i,t+1}\big) \qquad (5)
 $$
 
-Here $\hat{\mathbf y}_{i,t+1}$ stacks the specialist forecasts $\hat y^{(a)}_{i,t+1}$. In the implementation, the weights lie on the simplex: SLSQP with bounds $[0,1]$ and an equality constraint $\sum_a w_a=1$. They are fitted per (market, sector, regime) cell, from the uniform start plus seeded Dirichlet starts. A cell with fewer than 200 firm-quarters escalates to its sector pool and then to the market pool.
+Here $\hat{\mathbf y}_{i,t+1}$ stacks the specialist forecasts $\hat y^{(a)}_{i,t+1}$. In the implementation the meta-coordinator (Task 20) runs once per market, as each market is its own dataset with its own index regime. For every (market, sector, regime) cell it proposes a weight vector $\tilde{\mathbf w}^{(0)}$; its subset $A^*$ is the set of specialists proposed above the simplex tolerance. Task 21 then fits the weights by SLSQP over $A^*$ only, with bounds $[0,1]$, the equality constraint $\sum_{a\in A^*}w_a=1$ and $w_a=0$ outside $A^*$, starting from $\tilde{\mathbf w}^{(0)}$ restricted to $A^*$ plus seeded Dirichlet starts. Because the MAPE objective is convex in the weights, it is the subset that lets the coordinator change a forecast. A start is accepted when its point is feasible, whether or not SLSQP reports convergence at the objective's kinks. A cell with fewer than 200 firm-quarters escalates to its sector pool and then to the market pool.
 
 **Regimes.** Regimes follow the practitioner convention in the Pagan–Sossounov tradition. A **bull** market is declared when the index has risen at least 20 % from its most recent trough, and a **bear** market when it has fallen at least 20 % from its most recent peak (`BULL_MULTIPLE = 1.20`, `BEAR_MULTIPLE = 0.80`, Task 6). The configured timeline is **causal** (`pipeline.regime_timeline: causal`): a label uses only information available at the time. An ex-post timeline is computed alongside it for the sensitivity grid.
 
@@ -246,7 +247,7 @@ The memory is distilled into learnings $\mathbf Z^{(a)}$ (and $\mathbf Z^{\text{
 The manuscript is internally inconsistent on two points, and the configuration resolves both explicitly (`study_specification.internal_conflicts`):
 
 - Algorithm 1 stores $(\tilde f,\mathcal L)$ while Table 1 stores seven families. The implementation stores the **full seven-family profile**.
-- Section 3.3 fits weights by SLSQP with subset selection, while Algorithm 2 samples them from $\pi_\phi$. The implementation provides **both**: Task 20 runs the LLM loop and Task 21 fits the SLSQP matrix.
+- Section 3.3 fits weights by SLSQP with subset selection, while Algorithm 2 samples them from $\pi_\phi$. The implementation provides **both**, combined as the reproduction task list prescribes: Task 20 runs the LLM loop per market and proposes each cell's subset and starting weights, and Task 21 fits the SLSQP matrix over that subset from that start.
 
 ### 6. Forecast Evaluation and Statistical Inference (Appendix B)
 
@@ -300,10 +301,11 @@ The diagram below illustrates the Inputs, Processes and Outputs (IPOs) of the im
   - `study_complete` requires `data_mode="licensed"`;
   - synthetic panels can at best earn `pipeline_verified_on_synthetic_data`;
   - a `not_completed` run raises `Task36NotCompletedError` with the full result attached.
-- **Point-in-time discipline.** As-originally-reported filings only, restatement auditing, the filing-date gate, survivorship-free membership intervals, a causal regime timeline, a forward-shifted target, and a per-market chronological 80/20 split with a one-quarter embargo and a 10 % validation carve-out.
+- **Point-in-time discipline.** As-originally-reported filings only, restatement auditing, the filing-date gate, survivorship-free membership intervals, a causal regime timeline, a forward-shifted target whose share basis is audited against quarter $t$ (a split-like break drops the target), and a per-market chronological 80/20 split with a one-quarter embargo and a 10 % validation carve-out.
 - **One quarter key throughout.** Every stage keys quarters on the calendar quarter (`cal_quarter`, else the calendar quarter of `fiscal_period_end`), never on fiscal-label text. Both calendar-style and vendor-style (`"FY2020Q2"`) labels complete the pipeline.
 - **Every held-out row receives a weight.** A test-window context that never occurs in training is declared to the weight registry and takes its sector pool, or the market pool. MUFASA therefore does not silently drop rows that every baseline is scored on.
 - **Like-for-like comparison.** Beside each model's own-row MAPE, Task 27 reports the MAPE on the common support, the rows every scored model covers, and Task 29 writes it as a market-by-model matrix.
+- **The meta-coordinator reaches the forecast.** Task 21 fits each cell's weights over the subset the per-market meta-coordinator selected, from its proposed weights, so the hierarchical-reasoning component has a causal path to every MUFASA forecast.
 - **Grammar-checked, sandboxed execution.** Candidates are parsed against an operator whitelist (`+ - * / ^ log exp abs < > indicator`, at most 30 operators) and executed in a sandbox with timeout, NaN-tolerance and coverage audits. Every rejection becomes a structured, machine-parseable error.
 - **Token-budgeted prompts.** Each block of a prompt has its own budget:
   - specialist prompts: *PHILOSOPHY* 1,500, *PRIOR_EQUATION* 3,000, *LEARNINGS* 8,000 and *ERROR_FEEDBACK* 3,000 tokens;
@@ -325,12 +327,12 @@ Each task below names its orchestrator and the exact title of its notebook cell.
 4. **Task 4, Data Cleansing and Quality Filtering** (`run_task_4`). The original-filing snapshot assertion, restatement discipline, structural-zero audit, free-cash-flow sign audit, denominator policy and the Gate 0 quarantine.
 5. **Task 5, Point-in-Time Panel Construction** (`run_task_5`). Fiscal-to-calendar mapping, the filing-date gate and the membership gate, combined into `eligible_for_design_matrix`.
 6. **Task 6, Context Labelling and Causal Regime Dating** (`run_task_6`). Maps sectors to the paper's 11 labels, dates the causal and ex-post ±20 % regime timelines, and builds the context key and the cell occupancy. The pre-September-2018 GICS name *Telecommunication Services* (sector code 50) maps to *Communications*, the same label as its successor *Communication Services*.
-7. **Task 7, Target Construction and Temporal Partitioning** (`run_task_7`). Applies the eligibility filter, builds the forward-shifted target, and makes the per-market 80/20 split with a one-quarter embargo and a 90/10 fit/validation carve-out, freezing every artefact by digest.
+7. **Task 7, Target Construction and Temporal Partitioning** (`run_task_7`). Applies the eligibility filter, builds the forward-shifted target, audits its share basis against quarter $t$ (`audit_share_basis_task_7`: a split-like share-count break between $t$ and $t+1$ drops the target and is written to `share_basis_audit_task_7.csv`), and makes the per-market 80/20 split with a one-quarter embargo and a 90/10 fit/validation carve-out, freezing every artefact by digest.
 8. **Task 8, Codebook and Per-Share Variable Construction** (`run_task_8`). Builds the per-share quotients, tangible book, equity and enterprise multiples and the denominator floor under one admissibility helper, plus the versioned codebook and symbol registry.
 9. **Task 9, Cross-Sectional and Sector Aggregates** (`run_task_9`). Market and sector medians, means and dispersion under frozen winsorisation bounds. A sector median requires at least 5 firms per sector-quarter, a market aggregate at least 50 firms per quarter.
 10. **Task 10, Lagged and Engineered Features** (`run_task_10`). Lags 1, 4 and 8 of EPS, TTM revenue, EBITDA, EBIT and shares; year-on-year growth pairs; and engineered flags.
 11. **Task 11, Semantic Retrieval Index** (`run_task_11`). An exact in-memory cosine index over the codebook (default encoder `all-MiniLM-L6-v2`, depth 20), with pre-flight at depths 5, 10 and 20 and a bound retrieval callable for Task 15.
-12. **Task 12, LLM Serving Infrastructure and Role Configuration** (`run_task_12`). One server for the seven role keys (five specialists, the meta-coordinator and the distiller), a context-window assertion, smoke requests per sampling profile, out-of-memory back-off and a wall-clock budget.
+12. **Task 12, LLM Serving Infrastructure and Role Configuration** (`run_task_12`). One server for the seven role keys (five specialists, the meta-coordinator and the distiller), a context-window assertion, smoke requests per sampling profile, out-of-memory back-off and a wall-clock budget. Every role reply is split at its last `</think>`, so only a thinking model's answer reaches the parsers.
 13. **Task 13, Prompt Assembly and Token Budgeting** (`run_task_13`). Specialist, meta and distillation prompts under per-block budgets, with prompt-hash and token logs.
 14. **Task 14, Grammar Parser and Error Encoding** (`run_task_14`). The candidate grammar, the parser, and the reason taxonomy with suggested actions.
 15. **Task 15, Philosopher Agent Training Loop** (`run_task_15`). Algorithm 1 for the five perspectives, with trajectories, solver records, expressions, losses and profiles.
@@ -338,12 +340,12 @@ Each task below names its orchestrator and the exact title of its notebook cell.
 17. **Task 17, Code Execution Sandbox** (`run_task_17`). Compiles, executes and audits each candidate against the design matrix, returning aligned predictions and a defined-row mask.
 18. **Task 18, Statistical Memory and Seven-Family Profiling** (`run_task_18`). The seven-family profile, a memory store keyed by canonical structure hash with a 500-record cap, and a JSONL ledger.
 19. **Task 19, Natural-Language Memory Distillation** (`run_task_19`). Eight-block distillation at temperature 0.3, with number grounding, rejection of causal phrases, resampling and memory-regime support.
-20. **Task 20, Meta-Coordinator Training** (`run_task_20`). Algorithm 2 per context cell, with sector-pool and market-pool escalation and the meta trajectory.
-21. **Task 21, SLSQP Weight Fitting** (`run_task_21`). Simplex weights per (market, sector, regime) cell from multiple starts. The frozen matrix is applied to held-out rows without refitting. A held-out context with no training rows is declared to the registry and takes its sector pool, or the market pool; such cells are listed in `test_only_cells`.
-22. **Task 22, Master Orchestrator Function** (`run_task_22`). Runs stages 5–12, 15, 20 and 21 once per seed with checkpoints and returns `MufasaRunArtifacts`.
+20. **Task 20, Meta-Coordinator Training** (`run_task_20`). Algorithm 2 per context cell, run once per market by Task 22, with sector-pool and market-pool escalation and the meta trajectory. Every cell's and unit's proposal, the subset and starting weights Task 21 fits from, is written to `per_cell_proposals.json`.
+21. **Task 21, SLSQP Weight Fitting** (`run_task_21`). Simplex weights per (market, sector, regime) cell over the meta-coordinator's subset, from its proposal and seeded starts; a feasible start is accepted whether or not SLSQP reports convergence (`non_converged_units` lists such units). The frozen matrix is applied to held-out rows without refitting. A held-out context with no training rows is declared to the registry and takes its sector pool, or the market pool; such cells are listed in `test_only_cells`.
+22. **Task 22, Master Orchestrator Function** (`run_task_22`). Runs stages 5–12, 15, 20 (once per market) and 21 once per seed with checkpoints, passes the coordinator's proposals to Task 21, and returns `MufasaRunArtifacts`.
 23. **Task 23, ML Baselines and Feature Policy Equalisation** (`run_task_23`). Random forest (500 trees), HistGBM (200 iterations) and a neural net (64 hidden units, 200 epochs), all under one frozen preprocessing policy.
 24. **Task 24, Symbolic Regression Baselines** (`run_task_24`). PySR (27 populations, 30 iterations, maximum size 30), FunSearch and LLM-SR, selected on validation and evaluated once on test.
-25. **Task 25, Financial LLM and Classical Valuation Baselines** (`run_task_25`). Fin-R1 and Fino1; sector-median P/E, EV/EBIT, EV/EBITDA and P/B; and single-stage Gordon DDM, FCFE and FCFF with an equity risk premium of 0.05.
+25. **Task 25, Financial LLM and Classical Valuation Baselines** (`run_task_25`). Fin-R1 and Fino1; sector-median P/E, EV/EBIT, EV/EBITDA and P/B, the two enterprise-value multiples bridged to the share price by net debt per share; and single-stage Gordon DDM, FCFE and FCFF with an equity risk premium of 0.05.
 26. **Task 26, Agentic and Naive Price-Level Baselines** (`run_task_26`). FinCon and FinVision through declared adapters, plus persistence, cross-sectional-mean and trend benchmarks.
 27. **Task 27, Evaluation Metrics and Aggregation** (`run_task_27`). MAPE in its three variants, the common-support MAPE (`common_pooled`, `n_common`) on the rows every scored model covers, secondary metrics, row losses and reliability profiles.
 28. **Task 28, Diebold-Mariano Statistical Inference** (`run_task_28`). Newey–West with HLN, the two-way clustered view and Benjamini–Hochberg control.
@@ -384,12 +386,12 @@ Callable counts for each section (top-level definitions only; methods are those 
 | Task 4 | 20 | 0 | 0 | `run_task_4` |
 | Task 5 | 15 | 1 | 1 | `run_task_5` |
 | Task 6 | 12 | 0 | 0 | `run_task_6` |
-| Task 7 | 25 | 0 | 0 | `run_task_7` |
+| Task 7 | 26 | 0 | 0 | `run_task_7` |
 | Task 8 | 16 | 0 | 0 | `run_task_8` |
 | Task 9 | 13 | 0 | 0 | `run_task_9` |
 | Task 10 | 9 | 0 | 0 | `run_task_10` |
 | Task 11 | 7 | 0 | 0 | `run_task_11` |
-| Task 12 | 16 | 2 | 0 | `run_task_12` |
+| Task 12 | 17 | 2 | 0 | `run_task_12` |
 | Task 13 | 17 | 1 | 0 | `run_task_13` |
 | Task 14 | 16 | 3 | 15 | `run_task_14` |
 | Task 15 | 33 | 1 | 1 | `run_task_15` |
@@ -414,7 +416,7 @@ Callable counts for each section (top-level definitions only; methods are those 
 | Task 34 | 16 | 0 | 0 | `run_task_34` |
 | Task 35 | 16 | 3 | 0 | `run_task_35` |
 | Task 36 | 71 | 2 | 2 | `run_task_36` |
-| **Total** | **661** | **32** | **47** | **740 callables** |
+| **Total** | **663** | **32** | **47** | **742 callables** |
 
 **Shared namespace.** Executing the code cells top to bottom defines every callable in one namespace. `run_task_36` receives the stage callables through its `registry` argument, `{1: run_task_1, …, 35: run_task_35}`, so the notebook must be run **in full and in order** before use. No module is loaded from disk.
 
@@ -478,11 +480,11 @@ Outputs default to `MUFASA_STUDY_OUTPUT_DIR`, or `~/mufasa_study` when it is uns
 - **Core libraries** imported by the notebook: `numpy`, `pandas`, `scipy` (`scipy.stats`, `scipy.optimize.differential_evolution`, `scipy.optimize.minimize`), `scikit-learn` (`RandomForestRegressor`, `HistGradientBoostingRegressor`) and `matplotlib`.
 - **Optional at import, required for a licensed run:**
   - `sentence-transformers`: its import is guarded; without it, `embed_fn` must be injected;
-  - `vllm`: imported lazily by Task 12; an absent library halts serving with `VllmServingError`;
+  - `vllm`: imported lazily by Task 12; an absent library halts serving with `VllmServingError`. The declaration names vLLM 0.19.1, the newest release with Qwen3 support, `requires_python >=3.10,<3.14` and a CUDA 12.x build (it pins torch 2.10.0, built on the CUDA 12.8 runtime); it was not installed or run here;
   - `pysr`: imported lazily by Task 24; when absent, the PySR baseline is registered `unavailable` and nothing is substituted.
 - **Provenance only:** `statsmodels`, which the notebook never imports; Task 1 records its installed version.
 - **For the usage example only:** `PyYAML`, which reads `config.yaml`.
-- **Serving hardware for a licensed run:** the paper serves Qwen3-4B-Thinking with vLLM on NVIDIA RTX A5000 GPUs, at about 10 minutes per agent on each processing unit. It uses temperature 0.7 for the agents and 0.3 for the memory components, a 32,768-token context and a 16,384-token generation cap.
+- **Serving hardware for a licensed run:** the paper serves Qwen3-4B-Thinking (here `Qwen/Qwen3-4B-Thinking-2507`) with vLLM on NVIDIA RTX A5000 GPUs, at about 10 minutes per agent on each processing unit. It uses temperature 0.7 for the agents and 0.3 for the memory components, a 32,768-token context and a 16,384-token generation cap.
 - **Data access:** licensed Bloomberg fundamentals and FactSet macroeconomic series; Yahoo Finance index prices; index-membership histories with entry and exit dates; and GICS classification histories.
 
 ## Installation
@@ -503,11 +505,11 @@ Outputs default to `MUFASA_STUDY_OUTPUT_DIR`, or `~/mufasa_study` when it is uns
    ```sh
    python -m pip install -r requirements.txt
    ```
-   This installs the verified versions of the core stack, `statsmodels`, `PyYAML` and the Jupyter runtime, which is everything a synthetic run and the usage example need. A licensed run with real services also needs the optional packages, which `requirements.txt` lists commented out and unpinned because their versions were not verified:
+   This installs the verified versions of the core stack, `statsmodels`, `PyYAML` and the Jupyter runtime, which is everything a synthetic run and the usage example need. A licensed run with real services also needs the optional packages, which `requirements.txt` lists commented out because they were not installed or verified here; it declares `vllm==0.19.1` and leaves the other two unpinned:
    ```sh
-   pip install sentence-transformers pysr vllm
+   pip install sentence-transformers pysr vllm==0.19.1
    ```
-   vLLM publishes Linux/CUDA builds only and must be resolved against the served model, and PySR installs a Julia back-end on first use.
+   vLLM publishes Linux/CUDA builds only, and PySR installs a Julia back-end on first use.
 
 4. **Keep `config.yaml` in the working directory**, which is the notebook's own folder. `study_config.json` holds the same mapping and is the file `run_study_execution` loads.
 
@@ -3106,7 +3108,7 @@ This example was executed on 2026-10-23 on Windows 11 with Python 3.13.9, NumPy 
 | `reliability_profiles` | The per-perspective seven-family profiles of Task 18 (asset 3) |
 | `aggregated_predictions` | The Equation (4) aggregate keyed by market, quarter and firm, with partition, context key, target and aggregate status |
 | `perspective_predictions` | The long per-perspective predictions the aggregate was formed from |
-| `distilled_learnings` | The eight-block summaries: `agent` (per perspective) and `meta` (per context) |
+| `distilled_learnings` | The eight-block summaries: `agent` (per perspective) and `meta` (per `market::unit`) |
 | `missing_aggregate_counts`, `provenance`, `run_id`, `seed` | Coverage diagnostics and the run's provenance record |
 
 **On disk**, each stage writes beneath `<output_dir>/task_NN/`. The principal artefacts are:
@@ -3120,10 +3122,11 @@ This example was executed on 2026-10-23 on Windows 11 with Python 3.13.9, NumPy 
 │              nondeterminism_sources.json, gap_decision_register.jsonl
 ├── task_02/ … task_04/                   # deviation ledgers, quarantine, Gate 0, cleaned panel
 ├── task_22/   per-seed scopes holding Tasks 5–21: point-in-time panel, regime timeline,
-│              split boundaries, codebook, aggregates, semantic index, prompt logs,
-│              trajectories, expressions.json, losses.json, profiles.json, ledger.jsonl,
-│              cell_registry.json, per_cell_weights.json, z_meta.json,
-│              Task 21 summary (with test_only_cells)
+│              split boundaries, share_basis_audit_task_7.csv, codebook, aggregates,
+│              semantic index, prompt logs, trajectories, expressions.json, losses.json,
+│              profiles.json, ledger.jsonl, task_20/<market>/ (cell_registry.json,
+│              per_cell_weights.json, per_cell_proposals.json, z_meta.json) and the
+│              Task 21 summary (test_only_cells, non_converged_units, weights_mechanism)
 ├── task_23/ … task_26/                   # baseline predictions, manifests and registrations
 ├── task_27/   mape_variants_task_27.csv (incl. common_pooled, n_common), secondary_metrics_task_27.csv,
 │              row_losses_task_27.csv, reliability_profiles_task_27.json
@@ -3149,9 +3152,10 @@ multi_agent_symbolic_discovery_for_financial_fundamental_analysis/
 ├── multi_agent_symbolic_discovery_for_financial_fundamental_analysis_ipo_main_1.png # Inputs-Processes-Outputs diagram
 ├── config.yaml                 # study configuration, version 1.1.0 (14 top-level blocks)
 ├── study_config.json           # the same configuration mapping as JSON (read by run_study_execution)
-├── requirements.txt            # pinned versions of the verified environment (optional services unpinned)
+├── requirements.txt            # pinned versions of the verified environment (optional services commented out)
 ├── usage_example.md            # the verified usage example (also embedded in the notebook's Draft 1 section)
 ├── key_callables_discussion.txt  # IPOs of the 36 key callables (also embedded in the notebook's Draft 1 section)
+├── verification/               # the usage-example runner, the Task 27 comparison and the targeted checks of the corrections
 ├── inputs_discussion.txt       # discussion of the study inputs
 ├── LICENSE
 └── README.md
@@ -3166,7 +3170,7 @@ All parameters live in `config.yaml` (and its JSON twin `study_config.json`). Ke
 | Section / key | What it controls |
 |---|---|
 | `validation.fundamental_schema`, `validation.macro_schema` | The declared 79-column firm-quarter schema and dtypes, the macro series and the arithmetic verification targets |
-| `market_structure` | The index registry and ticker map, vendor symbols, the conflicts registry, the 18-entry `gap_register` and the FTSE candidate symbols |
+| `market_structure` | The index registry and ticker map, vendor symbols, the conflicts registry, the 20-entry `gap_register` and the FTSE candidate symbols |
 | `cleaning.ratio_specs`, `max_failure_fraction`, `warn_threshold` | The ten downstream ratios and the Gate 0 quarantine thresholds |
 | `pipeline.index_to_market`, `pipeline.perspectives`, `pipeline.perspective_agents` | Markets, the five perspectives, and each agent's theory, preferred variables, structural pattern and design principle |
 | `pipeline.train_fraction` / `embargo_quarters` / `fit_fraction` | The 0.8 chronological split, the 1-quarter embargo and the 0.9 fit share (10 % validation carve-out) |
@@ -3176,7 +3180,7 @@ All parameters live in `config.yaml` (and its JSON twin `study_config.json`). Ke
 | `pipeline.retrieval_top_k`, `retrieval_sensitivity_depths`, `retrieval_pass_threshold` | Retrieval depth 20, the pre-flight depths 5/10/20 and the 0.9 pre-flight pass rate |
 | `pipeline.memory_cap`, `min_cell_occupancy`, `min_firm_quarters` | The 500-record memory cap and the 200 firm-quarter context-cell floors |
 | `pipeline.weight_constraint`, `regime_timeline` | `simplex` vs `nonnegative` weights; `causal` vs `ex_post` regimes |
-| `pipeline.serving` | `model_id`, `model_revision` (must be pinned) and `dry_run` |
+| `pipeline.serving` | `model_id` (`Qwen/Qwen3-4B-Thinking-2507`), `model_revision` (pinned to the commit reported on 2026-10-23; re-verify) and `dry_run` |
 | `baselines.ml`, `.symbolic`, `.llm`, `.naive` | RF/HistGBM/NN hyperparameters, FunSearch and LLM-SR budgets, Fin-R1/Fino1 fields and the ERP, and the framework adapters and entry points |
 | `evaluation.alpha`, `evaluation.figures` | The significance level (0.05) and Figures 5–8 |
 | `ablation`, `memory_ablation`, `sensitivity`, `robustness` | Published comparison tables, memory regimes and strategies, the sensitivity grid, and the robustness battery |
@@ -3184,7 +3188,7 @@ All parameters live in `config.yaml` (and its JSON twin `study_config.json`). Ke
 
 **Before a licensed run:**
 
-- pin `pipeline.serving.model_revision` to the 40-hex commit of the served checkpoint;
+- re-verify `pipeline.serving.model_revision` (pinned to the commit reported on 2026-10-23) against the served checkpoint, and serve it with the declared vLLM 0.19.1 or a version verified to support Qwen3;
 - verify the FTSE Asia Pacific ex-Japan symbol and supply the vendor symbol list;
 - supply real services;
 - set `MUFASA_STUDY_DATA_DIR` to the directory holding `study_config.json` and the five panel pickles.
@@ -3209,7 +3213,7 @@ Contributions are welcome. Please follow the conventions of the notebook:
 4. **Improve the classical baselines.** Replace the single-stage Gordon parameterisation of DDM, FCFE and FCFF with multi-stage or adaptive assumptions, as the paper's limitations section suggests, while keeping the single-stage version as the reference.
 5. **Learn the agent and context composition.** The number of perspectives and the (sector, regime) contexts are fixed by design. Add perspectives such as macro, dividend or momentum, or richer contexts, and learn the composition adaptively.
 6. **Add news and sentiment signals** for Communications and Consumer Discretionary, where the paper attributes larger tail errors to forward-looking expectations that fundamentals do not capture.
-7. **Pin the full environment.** `requirements.txt` pins the verified versions of the synthetic-run stack only. Publish a complete `requirements.lock` and container image, as `study_specification.infrastructure` declares, including verified versions of `sentence-transformers`, `vllm` and `pysr` for the licensed run.
+7. **Pin the full environment.** `requirements.txt` pins the verified versions of the synthetic-run stack only. Publish a complete `requirements.lock` and container image, as `study_specification.infrastructure` declares, including verified versions of `sentence-transformers`, `vllm` (declared 0.19.1, not yet installed or run) and `pysr` for the licensed run.
 
 ## License
 

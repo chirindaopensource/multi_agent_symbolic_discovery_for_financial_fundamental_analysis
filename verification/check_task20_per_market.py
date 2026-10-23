@@ -68,7 +68,7 @@ x_row = weights.loc[f"X{separator}S1|Bull", perspectives].to_numpy(dtype=float)
 y_row = weights.loc[f"Y{separator}S1|Bull", perspectives].to_numpy(dtype=float)
 assert not np.allclose(x_row, y_row), "the two markets must receive distinct coordinator rows"
 assert all(separator in key and key.split(separator, 1)[0] in ("X", "Y") for key in outputs["coordinator_proposals"])
-assert f"X{separator}S1|Bull" in outputs["coordinator_proposals"] and f"Y{separator}S1|Bull" in outputs["coordinator_proposals"]
+assert all(f"{market}{separator}S1|Bull" in outputs["coordinator_proposals"] for market in ("X", "Y"))
 assert all(key.split(separator, 1)[0] in ("X", "Y") for key in outputs["meta_learnings"]), outputs["meta_learnings"]
 
 # A sector pool with enough firm-quarters but too few complete rows escalates to the market pool; every unit

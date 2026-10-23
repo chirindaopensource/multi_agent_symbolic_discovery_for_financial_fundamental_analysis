@@ -20,7 +20,9 @@ fixtures = {
     "<think>a</think>w=0.5,0.5": ("w=0.5,0.5", len("<think>a</think>")),
     "reason…</think>\nanswer": ("answer", len("reason…</think>")),
     "answer": ("answer", 0),
-    "<think>x</think>draft</think>  EXPRESSION: 1.0 * NI_ps  ": ("EXPRESSION: 1.0 * NI_ps", len("<think>x</think>draft</think>")),
+    "<think>x</think>draft</think>  EXPRESSION: 1.0 * NI_ps  ": (
+        "EXPRESSION: 1.0 * NI_ps", len("<think>x</think>draft</think>")
+    ),
 }
 for raw, (answer, reasoning_chars) in fixtures.items():
     for shape in ("mapping", "text"):

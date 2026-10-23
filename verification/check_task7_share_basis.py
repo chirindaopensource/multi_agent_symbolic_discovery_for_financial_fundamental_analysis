@@ -61,7 +61,8 @@ row = dropped.loc[(dropped["issuer_id"] == "A_contemporaneous_split") & (dropped
 assert row[ns["TARGET_DATE_REALISED_COLUMN_TASK_7"]].isna().all()
 
 adjusted = build(panel, share_basis_policy="adjust")
-assert target_of(adjusted, "A_contemporaneous_split", 2) == 26.0 * 2.0, target_of(adjusted, "A_contemporaneous_split", 2)
+adjusted_target = target_of(adjusted, "A_contemporaneous_split", 2)
+assert adjusted_target == 26.0 * 2.0, adjusted_target
 assert target_of(adjusted, "B_snapshot_split", 2) == 26.0
 assert len(adjusted.attrs[attr]) == 1 and adjusted.attrs[attr]["action"].iloc[0].startswith("target_multiplied_by_2")
 try:
