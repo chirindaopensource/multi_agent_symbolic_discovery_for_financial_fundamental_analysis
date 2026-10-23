@@ -70,4 +70,25 @@ assert not np.allclose(x_row, y_row), "the two markets must receive distinct coo
 assert all(separator in key and key.split(separator, 1)[0] in ("X", "Y") for key in outputs["coordinator_proposals"])
 assert f"X{separator}S1|Bull" in outputs["coordinator_proposals"] and f"Y{separator}S1|Bull" in outputs["coordinator_proposals"]
 assert all(key.split(separator, 1)[0] in ("X", "Y") for key in outputs["meta_learnings"]), outputs["meta_learnings"]
+
+# A sector pool with enough firm-quarters but too few complete rows escalates to the market pool; every unit
+# the coordinator attempted must still publish a proposal, the escalated one carrying its pool's.
+escalating = frame.loc[frame["market"] == "X"].copy()
+escalating.loc[escalating["firm_id"].isin([f"X_F{firm}" for firm in range(10)]), "context_key"] = (
+    escalating["context_key"].str.replace("S1", "S2", regex=False)
+)
+blank = (escalating["perspective"] == "growth") & escalating["context_key"].str.startswith("S2") & (
+    escalating["quarter"].str.slice(0, 4).astype(int) < 2004
+)
+escalating.loc[blank, "prediction"] = np.nan
+with tempfile.TemporaryDirectory() as directory:
+    run = ns["run_task_20"](
+        escalating, directory, 5, 3, 200, 11, role_callables=services["role_callables"],
+        tokenizer=services["tokenizer"], perspectives=perspectives, run_id="check_a2_escalation",
+    )
+units = run["per_unit_proposals"]
+assert "S2|POOLED" in units and units["S2|POOLED"]["pool_key"] == ns["POOL_ALL"], units.get("S2|POOLED")
+assert units[ns["POOL_ALL"]]["pool_key"] is None
+assert units["S2|POOLED"]["weights"] == units[ns["POOL_ALL"]]["weights"]
+print("escalated unit S2|POOLED carries the market pool's proposal:", units["S2|POOLED"]["pool_key"])
 print("CHECK OK")
