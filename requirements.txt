@@ -1,0 +1,103 @@
+# ============================================================================#
+#
+#  Self-Evolving Multi-Agent Symbolic Discovery for Financial Fundamental
+#  Analysis (MUFASA) - Python dependencies
+#
+#  This file pins the third-party distributions required to execute the
+#  implementation of "Self-Evolving Multi-Agent Symbolic Discovery for
+#  Financial Fundamental Analysis" by Kelvin J.L. Koa, Filip Orestav,
+#  Shengqiong Wu, Michael J. Wooldridge and Ke-Wei Huang (2026): the
+#  notebook's code cells from "Import Essential Modules" through
+#  "Task 36: Top-Level Pipeline Orchestrator", and the usage example.
+#
+#  Dependency Groups:
+#  • Core numerical stack, imported at module level by the notebook
+#  • Provenance stack, whose versions Task 1 records (STUDY_PACKAGES)
+#  • Configuration and notebook runtime for the usage example
+#  • Optional services, imported lazily only by the stages that need them:
+#    sentence_transformers (Task 11), vllm (Task 12), pysr (Task 24)
+#
+#  Verified Environment:
+#  • Python 3.13.9 (CPython, Windows 11, 64-bit)
+#  • Every pinned version below is the installed version on which all
+#    35 stages of run_task_36 completed on synthetic data (2026-10-23)
+#  • The standard-library imports (ast, hashlib, json, multiprocessing,
+#    pickle, subprocess, typing, ...) ship with Python; none is listed
+#
+#  Installation:
+#  • python -m pip install -r requirements.txt
+#
+#  Paper Reference:
+#  Koa, K. J. L., Orestav, F., Wu, S., Wooldridge, M. J., & Huang, K.-W.
+#  (2026). Self-Evolving Multi-Agent Symbolic Discovery for Financial
+#  Fundamental Analysis. arXiv preprint arXiv:2609.32746.
+#  https://arxiv.org/abs/2609.32746
+#
+#  Author: CS Chirinda
+#  License: MIT
+#  Version: 1.0.0
+#
+# ============================================================================#
+
+# -----------------------------------------------------------------------------
+# Core numerical stack (module-level imports of "Import Essential Modules")
+# -----------------------------------------------------------------------------
+# Arrays, seeded PCG64 generators and every vectorised transform.
+numpy==2.3.5
+# Point-in-time panels, as-of joins and every tabular artefact.
+pandas==2.3.3
+# differential_evolution (Task 16), minimize/SLSQP (Tasks 20, 21),
+# spearmanr (Tasks 18, 27) and stats.t for the Harvey-Leybourne-Newbold
+# t reference of the Diebold-Mariano test (Task 28).
+scipy==1.16.3
+# RandomForestRegressor and HistGradientBoostingRegressor (Task 23);
+# imported as "sklearn".
+scikit-learn==1.7.2
+# Figure, FigureCanvasAgg and pyplot for the comparative-evaluation figures
+# (Task 29).
+matplotlib==3.10.6
+
+# -----------------------------------------------------------------------------
+# Provenance stack (versions and record digests read by Task 1)
+# -----------------------------------------------------------------------------
+# Listed in STUDY_PACKAGES, so Task 1 records its installed version and
+# record digest; the notebook never imports it.
+statsmodels==0.14.5
+
+# -----------------------------------------------------------------------------
+# Configuration and notebook runtime (usage example)
+# -----------------------------------------------------------------------------
+# yaml.safe_load reads config.yaml into the dictionary "config".
+PyYAML==6.0.3
+# Jupyter front end and kernel that execute the notebook.
+notebook==7.4.5
+ipykernel==6.31.0
+
+# -----------------------------------------------------------------------------
+# Optional services (lazy imports; not needed for a synthetic run)
+# -----------------------------------------------------------------------------
+# A synthetic run (data_mode="synthetic") uses the notebook's declared
+# stand-in services and imports none of these. A licensed run
+# (data_mode="licensed") needs the operator's services. Their versions were
+# NOT installed or verified here, so no pin is asserted: uncomment, install
+# in the serving environment, and record the versions Task 1 measures.
+#
+# Task 11 semantic retrieval encoder. Without it (or an injected embed_fn),
+# Task 11 halts; it also installs torch, whose manual_seed is a seeding hook.
+# sentence-transformers
+#
+# Task 12 LLM serving (Qwen/Qwen3-4B-Thinking, 32,768-token context). vLLM
+# publishes Linux/CUDA builds only. STUDY_ENVIRONMENT_DECLARATION declares
+# vllm 0.6.6, but that release predates vLLM's Qwen3 support and does not
+# support Python 3.13. Resolve the version against the served model before
+# pinning.
+# vllm
+#
+# Task 24 PySR baseline. Requires a Julia runtime, which PySR installs on
+# first import.
+# pysr
+#
+# config.yaml (infrastructure.environment) also names torch, transformers,
+# lightgbm, seaborn, faiss/hnswlib, sympy and pyarrow, and declares Python
+# 3.11. The notebook imports none of these packages, so none is listed;
+# every pin above also supports Python 3.11.
